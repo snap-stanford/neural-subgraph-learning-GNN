@@ -1,6 +1,6 @@
-# Neural Graph Pattern Mining
+# Neural Frequent Subgraph Mining
 
-This package contains tools to train and run a pipeline to extract common patterns from an input graph dataset.
+This package contains an implementation of SPMiner, a graph neural network based framework to extract frequent subgraph patterns from an input graph dataset.
 
 Running the pipeline consists of training the encoder on synthetic data, then running the decoder on the dataset from which to mine patterns.
 
