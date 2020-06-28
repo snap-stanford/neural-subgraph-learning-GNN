@@ -1,0 +1,16 @@
+__pycache__/
+env/
+log/
+log-*/
+*.p
+*.png
+plots/
+data/
+runs/
+models/
+results/
+*.sw?
+ckpt/
+orca/
+core
+deepsnap-experimental/
