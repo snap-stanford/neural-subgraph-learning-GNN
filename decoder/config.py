@@ -19,10 +19,13 @@ def parse_decoder(parser):
     dec_parser.add_argument('--min_neighborhood_size', type=int)
     dec_parser.add_argument('--max_neighborhood_size', type=int)
     dec_parser.add_argument('--n_neighborhoods', type=int)
-    dec_parser.add_argument('--n_trials', type=int)
-    dec_parser.add_argument('--out_batch_size', type=int)
+    dec_parser.add_argument('--n_trials', type=int,
+                        help='number of search trials to run')
+    dec_parser.add_argument('--out_batch_size', type=int,
+                        help='number of motifs to output per graph size')
     dec_parser.add_argument('--analyze', action="store_true")
-    dec_parser.add_argument('--search_strategy', type=str)
+    dec_parser.add_argument('--search_strategy', type=str,
+                        help='"greedy" or "mcts"')
     dec_parser.add_argument('--use_whole_graphs', action="store_true",
         help="whether to cluster whole graphs or sampled node neighborhoods")
 
