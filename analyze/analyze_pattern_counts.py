@@ -8,7 +8,6 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 from scipy import stats
 import seaborn as sns
-import pandas as pd
 import os
 
 def arg_parse():
