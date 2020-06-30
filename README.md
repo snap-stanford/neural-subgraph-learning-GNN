@@ -8,8 +8,12 @@ Running the pipeline consists of training the encoder on synthetic data, then ru
 1. Train the encoder: `python3 -m encoder.train --node_anchored`
 2. Optionally, analyze the trained encoder via `python3 -m encoder.test --node_anchored`, or by running the "Analyze Embeddings" notebook in `analyze/`
 
+Full configuration options can be found in `encoder/config.py`.
+
 ## Run the decoder
 1. `python3 -m decoder.decoder --dataset=enzymes --node_anchored`
+
+Full configuration options can be found in `decoder/config.py`.
 
 ## Analyze results
 - Analyze the order embeddings after training the encoder: `python3 -m analyze.analyze_embeddings --node_anchored`
