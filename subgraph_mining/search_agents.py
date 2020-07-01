@@ -12,9 +12,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 
-from torch_geometric.datasets import TUDataset, PPI
-from torch_geometric.datasets import Planetoid, KarateClub, QM7b
-from torch_geometric.data import DataLoader
 import torch_geometric.utils as pyg_utils
 
 import torch_geometric.nn as pyg_nn
@@ -48,6 +45,27 @@ class SearchAgent:
         neighs, embs, method="greedy", node_anchored=False,
         analyze=False, rank_method="counts", model_type="order",
         out_batch_size=20):
+        """ Subgraph pattern search by walking in embedding space.
+
+        Args:
+            min_pattern_size: minimum size of frequent subgraphs to be identified.
+            max_pattern_size: maximum size of frequent subgraphs to be identified.
+            model: the trained subgraph matching model (PyTorch nn.Module).
+            dataset: the DeepSNAP dataset for which to mine the frequent subgraph pattern.
+            node_anchored: an option to specify whether to identify node_anchored subgraph patterns.
+                node_anchored search procedure has to use a node_anchored model (specified in subgraph
+                matching config.py).
+            analyze: whether to enable analysis visualization.
+            rank_method: common search heuristics (greedy, MCTS etc.) requires a score to rank the
+                possible next actions. 
+                If rank_method=='counts', counts of the pattern in search tree is used;
+                if rank_method=='margin', margin score of the pattern predicted by the matching model is
+                    used.
+                if rank_method=='hybrid', it considers both the count and margin to rank the actions.
+            model_type: type of the subgraph matching model (requires to be consistent with the model parameter).
+            out_batch_size: the number of frequent subgraphs output by the mining algorithm.
+                They are predicted to be the out_batch_size most frequent subgraphs in the dataset.
+        """
         self.min_pattern_size = min_pattern_size
         self.max_pattern_size = max_pattern_size
         self.model = model
@@ -60,7 +78,7 @@ class SearchAgent:
         self.rank_method = rank_method
         self.model_type = model_type
         self.out_batch_size = out_batch_size
-        print("RANK METHOD:", rank_method)
+        print("Rank Method:", rank_method)
 
     def run_search(self, n_trials=1000):
         self.cand_patterns = defaultdict(list)
@@ -71,11 +89,20 @@ class SearchAgent:
             search_ctx = self.step(search_ctx, n_trials)
         return self.finish_search(search_ctx)
 
+    def init_search(n_trials):
+        raise NotImplementedError
+
 class MCTSSearchAgent(SearchAgent):
     def __init__(self, min_pattern_size, max_pattern_size, model, dataset,
         neighs, embs, method="greedy", node_anchored=False,
         analyze=False, rank_method="counts", model_type="order",
         out_batch_size=20, c_uct=0.7):
+        """ MCTS implementation of the subgraph pattern search.
+        Uses MCTS strategy to search for the most common pattern.
+
+        Args:
+            c_uct: the exploration constant used in UCT criteria (See paper).
+        """
         super().__init__(min_pattern_size, max_pattern_size, model, dataset,
             neighs, embs, method=method, node_anchored=False,
             analyze=False, rank_method=rank_method, model_type=model_type,
@@ -231,6 +258,19 @@ class MCTSSearchAgent(SearchAgent):
 
 class GreedySearchAgent(SearchAgent):
     def init_search(self, n_trials):
+        """ Greedy implementation of the subgraph pattern search.
+        At every step, the algorithm chooses greedily the next node to grow while the pattern
+        remains to be frequent. The criteria to choose the next action depends
+        on the score predicted by the subgraph matching model 
+        (the actual score is determined by the rank_method argument).
+
+        This is a generalized greedy strategy, which also includes beam search.
+        The greedy strategy of choosing the next node that results in the largest score
+        is a special case where n_trials=1.
+
+        Args:
+            n_trials: number of search trajectories to consider at each search step.
+        """
         ps = np.array([len(g) for g in self.dataset], dtype=np.float)
         ps /= np.sum(ps)
         graph_dist = stats.rv_discrete(values=(np.arange(len(self.dataset)), ps))
