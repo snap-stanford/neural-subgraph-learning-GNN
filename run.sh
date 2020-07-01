@@ -1,1 +1,1 @@
-python3 -m encoder.train
+python3 -m subgraph_matching.train
