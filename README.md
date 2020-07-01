@@ -9,7 +9,9 @@ It is able to perform 2 tasks:
 
 ## Neural Subgraph Matching
 The library implements the algorithm [NeuroMatch](http://snap.stanford.edu/subgraph-matching/).
-Problem setup: given a query graph Q anchored at node q, and a target graph T anchored at node v,
+
+### Problem setup
+Given a query graph Q anchored at node q, and a target graph T anchored at node v,
 predict if there exists an isomorphism mapping a subgraph of T to Q, such that the isomorphism maps
 v to q.
 The framework maps the query and target into an embedding space, and either uses MLP/Neural tensor network + cross entropy loss
@@ -18,6 +20,11 @@ threshold of the score.
 
 See paper and website for detailed explanation of the algorithm.
 
+### Train the matching GNN encoder
+1. Train the encoder: `python3 -m encoder.train --node_anchored`
+2. Optionally, analyze the trained encoder via `python3 -m encoder.test --node_anchored`, or by running the "Analyze Embeddings" notebook in `analyze/`
+
+### Usage
 The alignment.py provides a utility to obtain all pairs of corresponding matching scores.
 If exact isomorphism mapping is desired, a conflict resolution algorithm can be applied on the
 alignment matrix (the output of alignment.py). 
@@ -33,9 +40,6 @@ embedding space and make subgraph prediction.
 
 Available configurations can be found in subgraph\_matching/config.py.
 
-### Train the matching GNN encoder
-1. Train the encoder: `python3 -m encoder.train --node_anchored`
-2. Optionally, analyze the trained encoder via `python3 -m encoder.test --node_anchored`, or by running the "Analyze Embeddings" notebook in `analyze/`
 
 ## Frequent Subgraph Mining
 This package also contains an implementation of SPMiner, a graph neural network based framework to extract frequent subgraph patterns from an input graph dataset.

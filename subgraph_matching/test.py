@@ -5,6 +5,9 @@ from sklearn.metrics import roc_auc_score, confusion_matrix
 from sklearn.metrics import precision_recall_curve, average_precision_score
 import torch
 
+# a very large margin score to given orca constraints
+MAX_MARGIN_SCORE = 1e9
+
 def validation(args, model, test_pts, logger, batch_n, epoch, verbose=False):
     # test on new motifs
     model.eval()
@@ -60,12 +63,12 @@ def validation(args, model, test_pts, logger, batch_n, epoch, verbose=False):
                     #input()
                     (va, na), (vb, nb) = make_feats(ga), make_feats(gb)
                     if (va < vb).any() or (na < nb).any():
-                        print("WTF")
-                        raw_pred[i] = 1000000000
+                        print("ERROR (shouldn't happen): orca constraint violated for positive examples")
+                        raw_pred[i] = MAX_MARGIN_SCORE
                 for i, (ga, gb) in enumerate(zip(neg_a.G, neg_b.G)):
                     (va, na), (vb, nb) = make_feats(ga), make_feats(gb)
                     if (va < vb).any() or (na < nb).any():
-                        raw_pred[pos_a.num_graphs + i] = 1000000000
+                        raw_pred[pos_a.num_graphs + i] = MAX_MARGIN_SCORE
 
             if args.method_type == "order":
                 pred = model.clf_model(raw_pred.unsqueeze(1)).argmax(dim=-1)
