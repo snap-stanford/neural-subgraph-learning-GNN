@@ -5,8 +5,8 @@ from sklearn.metrics import roc_auc_score, confusion_matrix
 from sklearn.metrics import precision_recall_curve, average_precision_score
 import torch
 
-# a very large margin score to given orca constraints
-MAX_MARGIN_SCORE = 1e9
+USE_ORCA_FEATS = False # whether to use orca motif counts along with embeddings
+MAX_MARGIN_SCORE = 1e9 # a very large margin score to given orca constraints
 
 def validation(args, model, test_pts, logger, batch_n, epoch, verbose=False):
     # test on new motifs
@@ -33,38 +33,17 @@ def validation(args, model, test_pts, logger, batch_n, epoch, verbose=False):
                     emb_as, emb_bs = emb_neg_a, emb_neg_b
             pred = model(emb_as, emb_bs)
             raw_pred = model.predict(pred)
-            TEST_ORCA = False
-            if TEST_ORCA:
+            if USE_ORCA_FEATS:
                 import orca
                 import matplotlib.pyplot as plt
                 def make_feats(g):
                     counts5 = np.array(orca.orbit_counts("node", 5, g))
                     for v, n in zip(counts5, g.nodes):
-                        #print(g.nodes[n]["node_feature"])
                         if g.nodes[n]["node_feature"][0] > 0:
                             anchor_v = v
                             break
-                    #input()
                     v5 = np.sum(counts5, axis=0)
                     return v5, anchor_v
-                # shouldn't make a difference for pos pts
-                for i, (ga, gb) in enumerate(zip(pos_a.G, pos_b.G)):
-                    #colors = ["red" if ga.nodes[n]["node_feature"][0] > 0
-                    #    else "blue" for n in ga.nodes]
-                    #nx.draw(ga, node_color=colors)
-                    #plt.savefig("1.png")
-                    #plt.close()
-                    #colors = ["red" if gb.nodes[n]["node_feature"][0] > 0
-                    #    else "blue" for n in gb.nodes]
-                    #nx.draw(gb, node_color=colors)
-                    #plt.savefig("2.png")
-                    #plt.close()
-                    #print("saved")
-                    #input()
-                    (va, na), (vb, nb) = make_feats(ga), make_feats(gb)
-                    if (va < vb).any() or (na < nb).any():
-                        print("ERROR (shouldn't happen): orca constraint violated for positive examples")
-                        raw_pred[i] = MAX_MARGIN_SCORE
                 for i, (ga, gb) in enumerate(zip(neg_a.G, neg_b.G)):
                     (va, na), (vb, nb) = make_feats(ga), make_feats(gb)
                     if (va < vb).any() or (na < nb).any():
@@ -83,9 +62,6 @@ def validation(args, model, test_pts, logger, batch_n, epoch, verbose=False):
             elif args.method_type == "mlp":
                 raw_pred = raw_pred[:,1]
                 pred = pred.argmax(dim=-1)
-            # uncomment to use graph-size-based baseline
-            #pred = torch.tensor([int(len(motifs[b]) < len(motifs[a]))
-            #    for a, b, label in pts]).to(utils.get_device())
         all_raw_preds.append(raw_pred)
         all_preds.append(pred)
         all_labels.append(labels)
@@ -113,10 +89,6 @@ def validation(args, model, test_pts, logger, batch_n, epoch, verbose=False):
         plt.savefig("plots/precision-recall-curve.png")
         print("Saved PR curve plot in plots/precision-recall-curve.png")
 
-    #acc, prec, recall, auroc = (metric_average(acc), metric_average(prec),
-    #    metric_average(recall), metric_average(auroc))
-    #tp, tn, fp, fn = (metric_sum(tp), metric_sum(tn), metric_sum(fp),
-    #    metric_sum(fn))
     print("\n{}".format(str(datetime.now())))
     print("Validation. Epoch {}. Acc: {:.4f}. "
         "P: {:.4f}. R: {:.4f}. AUROC: {:.4f}. AP: {:.4f}.\n     "
