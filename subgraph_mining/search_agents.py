@@ -41,6 +41,14 @@ import torch.multiprocessing as mp
 from sklearn.decomposition import PCA
 
 class SearchAgent:
+    """ Class for search strategies to identify frequent subgraphs in embedding space.
+
+    The problem is formulated as a search. The first action chooses a seed node to grow from.
+    Subsequent actions chooses a node in dataset to connect to the existing subgraph pattern,
+    increasing the pattern size by 1.
+
+    See paper for rationale and algorithm details.
+    """
     def __init__(self, min_pattern_size, max_pattern_size, model, dataset,
         neighs, embs, method="greedy", node_anchored=False,
         analyze=False, rank_method="counts", model_type="order",
@@ -70,9 +78,9 @@ class SearchAgent:
         self.max_pattern_size = max_pattern_size
         self.model = model
         self.dataset = dataset
-        self.neighs = neighs
-        self.embs = embs
-        self.method = method
+        self.neighs = neighs # TODO not used
+        self.embs = embs # TODO: add to Args doc
+        self.method = method # TODO not used
         self.node_anchored = node_anchored
         self.analyze = analyze
         self.rank_method = rank_method
@@ -80,7 +88,10 @@ class SearchAgent:
         self.out_batch_size = out_batch_size
         print("Rank Method:", rank_method)
 
-    def run_search(self, n_trials=1000):
+    def run_search(self, n_trials=1000): 
+        # TODO: n_trials here, but also in init of Greedy. need to make sure that the n_trials in
+        # Greedy init and Greedy run-search is the same variable. (maybe one way is to move n_trials
+        # in init?)
         self.cand_patterns = defaultdict(list)
         self.counts = defaultdict(lambda: defaultdict(list))
 
@@ -90,6 +101,14 @@ class SearchAgent:
         return self.finish_search(search_ctx)
 
     def init_search(n_trials):
+        raise NotImplementedError
+
+    def step(self, ctx, n_trials): #TODO: maybe change ctx to a more intuitive/general param name?
+        """ Abstract method for executing a search step.
+        Every step adds a new node to the subgraph pattern.
+        Run_search calls step at least min_pattern_size times to generate a pattern of at least this
+        size. To be inherited by concrete search strategy implementations.
+        """
         raise NotImplementedError
 
 class MCTSSearchAgent(SearchAgent):
@@ -147,7 +166,9 @@ class MCTSSearchAgent(SearchAgent):
                 uct_score = self.c_uct * np.sqrt(np.log(simulation_n or 1) /
                     (my_visit_counts or 1))
                 node_score = q_score + uct_score
-                #print(cand_graph_idx, cand_start_node, q_score, uct_score)
+                #print(cand_graph_idx, cand_start_node, q_score, uct_score) 
+                # TODO: we can log some of these scores etc. just need to specify like
+                # print('XX_score: ', xx_score)
                 if node_score > best_score:
                     best_score = node_score
                     best_graph_idx = cand_graph_idx
@@ -264,12 +285,8 @@ class GreedySearchAgent(SearchAgent):
         on the score predicted by the subgraph matching model 
         (the actual score is determined by the rank_method argument).
 
-        This is a generalized greedy strategy, which also includes beam search.
-        The greedy strategy of choosing the next node that results in the largest score
-        is a special case where n_trials=1.
-
         Args:
-            n_trials: number of search trajectories to consider at each search step.
+            n_trials: number of search trajectories to try.
         """
         ps = np.array([len(g) for g in self.dataset], dtype=np.float)
         ps /= np.sum(ps)
@@ -291,6 +308,7 @@ class GreedySearchAgent(SearchAgent):
         return len(beams) == 0
 
     def step(self, beams, n_trials):
+        # TODO: the variables here may confuse with beam search (beam_size, new_beams etc.)
         #beam_size = int(method.split("-")[-1]) if "-" in method else 1
         #while len(neigh) < max_pattern_size and frontier:
         new_beams = []
