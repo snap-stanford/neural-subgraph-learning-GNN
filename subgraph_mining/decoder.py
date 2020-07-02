@@ -24,9 +24,9 @@ from common import data
 from common import models
 from common import utils
 from common import combined_syn
-from decoder.config import parse_decoder
-from encoder.config import parse_encoder
-from decoder.search_agents import GreedySearchAgent, MCTSSearchAgent
+from subgraph_mining.config import parse_decoder
+from subgraph_matching.config import parse_encoder
+from subgraph_mining.search_agents import GreedySearchAgent, MCTSSearchAgent
 
 import matplotlib.pyplot as plt
 
@@ -158,13 +158,13 @@ def pattern_growth(dataset, task, args):
         plt.scatter(embs_np[:,0], embs_np[:,1])
 
     if args.search_strategy == "mcts":
+        assert args.method_type == "order"
         agent = MCTSSearchAgent(args.min_pattern_size, args.max_pattern_size,
-            model, graphs, neighs, embs, node_anchored=args.node_anchored,
+            model, graphs, embs, node_anchored=args.node_anchored,
             analyze=args.analyze, out_batch_size=args.out_batch_size)
     elif args.search_strategy == "greedy":
         agent = GreedySearchAgent(args.min_pattern_size, args.max_pattern_size,
-            model, graphs, neighs, embs, node_anchored=args.node_anchored,
-            method=args.search_strategy,
+            model, graphs, embs, node_anchored=args.node_anchored,
             analyze=args.analyze, model_type=args.method_type,
             out_batch_size=args.out_batch_size)
     out_graphs = agent.run_search(args.n_trials)
