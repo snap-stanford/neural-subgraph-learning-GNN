@@ -21,24 +21,24 @@ threshold of the score.
 See paper and website for detailed explanation of the algorithm.
 
 ### Train the matching GNN encoder
-1. Train the encoder: `python3 -m encoder.train --node_anchored`
-2. Optionally, analyze the trained encoder via `python3 -m encoder.test --node_anchored`, or by running the "Analyze Embeddings" notebook in `analyze/`
+1. Train the encoder: `python3 -m subgraph_matching.train --node_anchored`. Note that a trained order embedding model checkpoint is provided in `ckpt/model.pt`.
+2. Optionally, analyze the trained encoder via `python3 -m subgraph_matching.test --node_anchored`, or by running the "Analyze Embeddings" notebook in `analyze/`
 
 ### Usage
-The alignment.py provides a utility to obtain all pairs of corresponding matching scores.
+The module `python3 -m subgraph_matching.alignment.py [--query_path=...] [--target_path=...]` provides a utility to obtain all pairs of corresponding matching scores, given a pickle file of the query and target graphs in networkx format. Run the module without these arguments for an example using random graphs. 
 If exact isomorphism mapping is desired, a conflict resolution algorithm can be applied on the
 alignment matrix (the output of alignment.py). 
-Such algorithm is available in recent works. For example: [Deep Graph Matching
+Such algorithms are available in recent works. For example: [Deep Graph Matching
 Consensus](https://arxiv.org/abs/2001.09621) and [Convolutional Set Matching for Graph
 Similarity](https://arxiv.org/abs/1810.10866).
 
-Both synthetic data (`common/combined\_syn.py`) and synthetic data (`common/data.py`) can be used to train the model.
+Both synthetic data (`common/combined_syn.py`) and real-world data (`common/data.py`) can be used to train the model.
 One can also train with synthetic data, and transfer the learned model to make inference on real
-data (see `subgraph\_matching/test.py`).
-The `neural\_matching` folder contains an encoder that uses GNN to map the query and target into the
-embedding space and make subgraph prediction.
+data (see `subgraph_matching/test.py`).
+The `neural_matching` folder contains an encoder that uses GNN to map the query and target into the
+embedding space and make subgraph predictions.
 
-Available configurations can be found in subgraph\_matching/config.py.
+Available configurations can be found in `subgraph_matching/config.py`.
 
 
 ## Frequent Subgraph Mining
@@ -46,17 +46,17 @@ This package also contains an implementation of SPMiner, a graph neural network 
 
 Running the pipeline consists of training the encoder on synthetic data, then running the decoder on the dataset from which to mine patterns.
 
-Full configuration options can be found in `encoder/config.py`.
+Full configuration options can be found in `subgraph_matching/config.py` and `subgraph_mining/config.py`.
 
 ### Run SPMiner
 To run SPMiner to identify common subgraph pattern, the prerequisite is to have a checkpoint of
 trained subgraph matching model (obtained by training the GNN encoder).
-The config argument `args.model\_path` (`subgraph\_matching/config.py`) specifies the location of the
-saved checkpoint, and is shared for both the `subgraph\_matching` and `subgraph\_mining` models.
+The config argument `args.model_path` (`subgraph_matching/config.py`) specifies the location of the
+saved checkpoint, and is shared for both the `subgraph_matching` and `subgraph_mining` models.
 1. `python3 -m subgraph_mining.decoder --dataset=enzymes --node_anchored`
 
 Full configuration options can be found in `decoder/config.py`. SPMiner also shares the
-configurations of NeuroMatch `subgraph\_matching/config.py` since it's used as a subroutine.
+configurations of NeuroMatch `subgraph_matching/config.py` since it's used as a subroutine.
 
 ## Analyze results
 - Analyze the order embeddings after training the encoder: `python3 -m analyze.analyze_embeddings --node_anchored`

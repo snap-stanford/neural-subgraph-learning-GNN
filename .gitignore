@@ -7,10 +7,8 @@ log-*/
 plots/
 data/
 runs/
-models/
 results/
 *.sw?
-ckpt/
 orca/
 core
 deepsnap-experimental/

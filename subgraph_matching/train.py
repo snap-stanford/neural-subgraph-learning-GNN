@@ -31,10 +31,10 @@ from common import models
 from common import utils
 if HYPERPARAM_SEARCH:
     from test_tube import HyperOptArgumentParser
-    from encoder.hyp_search import parse_encoder
+    from subgraph_matching.hyp_search import parse_encoder
 else:
-    from encoder.config import parse_encoder
-from encoder.test import validation
+    from subgraph_matching.config import parse_encoder
+from subgraph_matching.test import validation
 
 def build_model(args):
     # build model
