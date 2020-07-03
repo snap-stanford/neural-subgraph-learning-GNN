@@ -21,7 +21,7 @@ from matplotlib import cm
 from common import data
 from common import models
 from common import utils
-from decoder import decoder
+from subgraph_mining import decoder
 
 from tqdm import tqdm
 import matplotlib.pyplot as plt
