@@ -113,6 +113,7 @@ class MCTSSearchAgent(SearchAgent):
             embs, node_anchored=node_anchored, analyze=analyze,
             model_type=model_type, out_batch_size=out_batch_size)
         self.c_uct = c_uct
+        assert not analyze
 
     def init_search(self):
         self.wl_hash_to_graphs = defaultdict(list)
@@ -286,7 +287,6 @@ class GreedySearchAgent(SearchAgent):
         beams = []
         for trial in range(self.n_trials):
             graph_idx = np.arange(len(self.dataset))[graph_dist.rvs()]
-            #graph_idx = random.randint(0, len(dataset)-1)
             graph = self.dataset[graph_idx]
             start_node = random.choice(list(graph.nodes))
             neigh = [start_node]
@@ -294,6 +294,7 @@ class GreedySearchAgent(SearchAgent):
             visited = set([start_node])
             beams.append([(0, neigh, frontier, visited, graph_idx)])
         self.beam_sets = beams
+        self.analyze_embs = []
 
     def is_search_done(self):
         return len(self.beam_sets) == 0
@@ -302,12 +303,12 @@ class GreedySearchAgent(SearchAgent):
         new_beam_sets = []
         print("seeds come from", len(set(b[0][-1] for b in self.beam_sets)),
             "distinct graphs")
+        analyze_embs_cur = []
         for beam_set in tqdm(self.beam_sets):
             new_beams = []
             for _, neigh, frontier, visited, graph_idx in beam_set:
                 graph = self.dataset[graph_idx]
                 if len(neigh) >= self.max_pattern_size or not frontier: continue
-                #for cand_node in random.sample(frontier, len(frontier)):
                 cand_neighs, anchors = [], []
                 for cand_node in frontier:
                     cand_neigh = graph.subgraph(neigh + [cand_node])
@@ -355,14 +356,31 @@ class GreedySearchAgent(SearchAgent):
                 if self.rank_method in ["counts", "hybrid"]:
                     self.counts[len(neigh_g)][utils.wl_hash(neigh_g,
                         node_anchored=self.node_anchored)].append(neigh_g)
+                if self.analyze and len(neigh) >= 3:
+                    emb = self.model.emb_model(utils.batch_nx_graphs(
+                        [neigh_g], anchors=[neigh[0]] if self.node_anchored
+                        else None)).squeeze(0)
+                    analyze_embs_cur.append(emb.detach().cpu().numpy())
             if len(new_beams) > 0:
                 new_beam_sets.append(new_beams)
         self.beam_sets = new_beam_sets
+        self.analyze_embs.append(analyze_embs_cur)
 
     def finish_search(self):
         if self.analyze:
+            print("Saving analysis info in results/analyze.p")
             with open("results/analyze.p", "wb") as f:
-                pickle.dump((cand_patterns, neighs), f)
+                pickle.dump((self.cand_patterns, self.analyze_embs), f)
+            xs, ys = [], []
+            for embs_ls in self.analyze_embs:
+                for emb in embs_ls:
+                    xs.append(emb[0])
+                    ys.append(emb[1])
+            print("Saving analysis plot in results/analyze.png")
+            plt.scatter(xs, ys, color="red", label="motif")
+            plt.legend()
+            plt.savefig("plots/analyze.png")
+            plt.close()
 
         cand_patterns_uniq = []
         for pattern_size in range(self.min_pattern_size, self.max_pattern_size+1):

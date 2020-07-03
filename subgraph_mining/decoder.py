@@ -155,7 +155,7 @@ def pattern_growth(dataset, task, args):
 
     if args.analyze:
         embs_np = torch.stack(embs).numpy()
-        plt.scatter(embs_np[:,0], embs_np[:,1])
+        plt.scatter(embs_np[:,0], embs_np[:,1], label="node neighborhood")
 
     if args.search_strategy == "mcts":
         assert args.method_type == "order"
