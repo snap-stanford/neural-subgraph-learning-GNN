@@ -180,7 +180,8 @@ def pattern_growth(dataset, task, args):
             nx.draw(pattern, node_color=colors, with_labels=True)
         else:
             nx.draw(pattern)
-        print(len(pattern), count_by_size[len(pattern)])
+        print("Saving plots/cluster/{}-{}.png".format(len(pattern),
+            count_by_size[len(pattern)]))
         plt.savefig("plots/cluster/{}-{}.png".format(len(pattern),
             count_by_size[len(pattern)]))
         plt.savefig("plots/cluster/{}-{}.pdf".format(len(pattern),

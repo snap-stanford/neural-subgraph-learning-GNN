@@ -152,9 +152,6 @@ class MCTSSearchAgent(SearchAgent):
                 uct_score = self.c_uct * np.sqrt(np.log(simulation_n or 1) /
                     (my_visit_counts or 1))
                 node_score = q_score + uct_score
-                #print(cand_graph_idx, cand_start_node, q_score, uct_score) 
-                # TODO: we can log some of these scores etc. just need to specify like
-                # print('XX_score: ', xx_score)
                 if node_score > best_score:
                     best_score = node_score
                     best_graph_idx = cand_graph_idx
@@ -164,9 +161,7 @@ class MCTSSearchAgent(SearchAgent):
                 graph_idx, start_node = best_graph_idx, best_start_node
                 assert best_start_node in self.dataset[graph_idx].nodes
                 graph = self.dataset[graph_idx]
-                #print("old seed")
             else:
-                #print(simulation_n, "new seed")
                 found = False
                 while not found:
                     graph_idx = np.arange(len(self.dataset))[graph_dist.rvs()]
@@ -184,9 +179,7 @@ class MCTSSearchAgent(SearchAgent):
             neigh_g.add_node(start_node, anchor=1)
             cur_state = graph_idx, start_node
             state_list = [cur_state]
-            #print(len(frontier), len(neigh))
             while frontier and len(neigh) < self.max_size:
-                #print(len(neigh))
                 cand_neighs, anchors = [], []
                 for cand_node in frontier:
                     cand_neigh = graph.subgraph(neigh + [cand_node])
@@ -218,7 +211,6 @@ class MCTSSearchAgent(SearchAgent):
                     uct_score = self.c_uct * np.sqrt(np.log(parent_visit_counts or
                         1) / (my_visit_counts or 1))
                     node_score = q_score + uct_score
-                    #print(q_score, uct_score, len(neigh))
                     if node_score > best_node_score:
                         best_node_score = node_score
                         best_v_score = v_score
@@ -241,7 +233,6 @@ class MCTSSearchAgent(SearchAgent):
 
             # backprop value
             for i in range(0, len(state_list) - 1):
-                #print(best_v_score)
                 self.cum_action_values[state_list[i]][
                     state_list[i+1]] += best_v_score
                 self.visit_counts[state_list[i]][state_list[i+1]] += 1
@@ -252,15 +243,14 @@ class MCTSSearchAgent(SearchAgent):
         for _, v in self.visit_counts.items():
             for s2, count in v.items():
                 counts[len(random.choice(self.wl_hash_to_graphs[s2]))][s2] += count
-        
-        print(list(counts.keys()))
+
         cand_patterns_uniq = []
         for pattern_size in range(self.min_pattern_size, self.max_pattern_size+1):
             for wl_hash, count in sorted(counts[pattern_size].items(), key=lambda
                 x: x[1], reverse=True)[:self.out_batch_size]:
                 cand_patterns_uniq.append(random.choice(
                     self.wl_hash_to_graphs[wl_hash]))
-                print(pattern_size, count)
+                print("- outputting", count, "motifs of size", pattern_size)
         return cand_patterns_uniq
 
 class GreedySearchAgent(SearchAgent):
@@ -310,7 +300,8 @@ class GreedySearchAgent(SearchAgent):
 
     def step(self):
         new_beam_sets = []
-        print(len(set(b[0][-1] for b in self.beam_sets)))
+        print("seeds come from", len(set(b[0][-1] for b in self.beam_sets)),
+            "distinct graphs")
         for beam_set in tqdm(self.beam_sets):
             new_beams = []
             for _, neigh, frontier, visited, graph_idx in beam_set:
@@ -342,7 +333,6 @@ class GreedySearchAgent(SearchAgent):
                                 )[:,0]).item()
                         else:
                             print("unrecognized model type")
-                    #score = np.log(score/n_embs + 1)
                     if score < best_score:
                         best_score = score
                         best_node = cand_node
@@ -356,7 +346,6 @@ class GreedySearchAgent(SearchAgent):
                 x[0]))[:self.n_beams]
             for score, neigh, frontier, visited, graph_idx in new_beams[:1]:
                 graph = self.dataset[graph_idx]
-                #print(frontier, len(frontier))
                 # add to record
                 neigh_g = graph.subgraph(neigh).copy()
                 neigh_g.remove_edges_from(nx.selfloop_edges(neigh_g))
@@ -382,7 +371,6 @@ class GreedySearchAgent(SearchAgent):
                     self.counts[pattern_size].values(), key=len)) < 3 else "counts"
             else:
                 cur_rank_method = self.rank_method
-            print(pattern_size, cur_rank_method)
 
             if cur_rank_method == "margin":
                 wl_hashes = set()
@@ -399,8 +387,6 @@ class GreedySearchAgent(SearchAgent):
             elif cur_rank_method == "counts":
                 for _, neighs in list(sorted(self.counts[pattern_size].items(),
                     key=lambda x: len(x[1]), reverse=True))[:self.out_batch_size]:
-                    print(pattern_size, len(neighs))
-                    #print(len(neighs))
                     cand_patterns_uniq.append(random.choice(neighs))
             else:
                 print("Unrecognized rank method")
