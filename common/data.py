@@ -26,6 +26,10 @@ from common import feature_preprocess
 from common import utils
 
 def load_dataset(name):
+    """ Load real-world datasets, available in PyTorch Geometric.
+
+    Used as a helper for DiskDataSource.
+    """
     task = "graph"
     if name == "enzymes":
         dataset = TUDataset(root="/tmp/ENZYMES", name="ENZYMES")
@@ -97,10 +101,17 @@ def load_dataset(name):
     return train, test, task
 
 class DataSource:
-    pass
+    def gen_batch(batch_target, batch_neg_target, batch_neg_query, train):
+        raise NotImplementedError
 
-# on-the-fly data generation
 class OTFSynDataSource(DataSource):
+    """ On-the-fly generated synthetic data for training the subgraph model.
+
+    At every iteration, new batch of graphs (positive and negative) are generated
+    with a pre-defined generator (see combined_syn.py).
+
+    DeepSNAP transforms are used to generate the positive and negative examples.
+    """
     def __init__(self, max_size=29, min_size=5, n_workers=4,
         max_queue_size=256, node_anchored=False):
         self.closed = False
@@ -229,6 +240,14 @@ class OTFSynDataSource(DataSource):
         return pos_target, pos_query, neg_target, neg_query
 
 class OTFSynImbalancedDataSource(OTFSynDataSource):
+    """ Imbalanced on-the-fly synthetic data.
+
+    Unlike the balanced dataset, this data source does not use 1:1 ratio for
+    positive and negative examples. Instead, it randomly sample 2 graphs from
+    the on-the-fly generator, and record the groundtruth label for the pair (subgraph or not).
+    As a result, the data is imbalanced (subgraph relationships are rarer).
+    This setting is a challenging model inference scenario.
+    """
     def __init__(self, max_size=29, min_size=5, n_workers=4,
         max_queue_size=256, node_anchored=False):
         super().__init__(max_size=max_size, min_size=min_size,
