@@ -49,17 +49,25 @@ def build_model(args):
     return model
 
 def make_data_source(args):
-    if args.dataset_type in ["real", "otf-syn"]:
-        if args.dataset_type == "real":
-            data_source = data.DiskImbalancedDataSource(args.dataset,
+    toks = args.dataset.split("-")
+    if toks[0] == "syn":
+        if len(toks) == 1 or toks[1] == "balanced":
+            data_source = data.OTFSynDataSource(
                 node_anchored=args.node_anchored)
-        elif args.dataset_type == "otf-syn":
-            if args.dataset == "otf-syn":
-                data_source = data.OTFSynDataSource(
-                    node_anchored=args.node_anchored)
-            elif args.dataset == "imbalanced":
-                data_source = data.OTFSynImbalancedDataSource(
-                    node_anchored=args.node_anchored)
+        elif toks[1] == "imbalanced":
+            data_source = data.OTFSynImbalancedDataSource(
+                node_anchored=args.node_anchored)
+        else:
+            raise Exception("Error: unrecognized dataset")
+    else:
+        if len(toks) == 1 or toks[1] == "balanced":
+            data_source = data.DiskDataSource(toks[0],
+                node_anchored=args.node_anchored)
+        elif toks[1] == "imbalanced":
+            data_source = data.DiskImbalancedDataSource(toks[0],
+                node_anchored=args.node_anchored)
+        else:
+            raise Exception("Error: unrecognized dataset")
     return data_source
 
 def train(args, model, logger, in_queue, out_queue):

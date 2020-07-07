@@ -24,6 +24,8 @@ See paper and website for detailed explanation of the algorithm.
 1. Train the encoder: `python3 -m subgraph_matching.train --node_anchored`. Note that a trained order embedding model checkpoint is provided in `ckpt/model.pt`.
 2. Optionally, analyze the trained encoder via `python3 -m subgraph_matching.test --node_anchored`, or by running the "Analyze Embeddings" notebook in `analyze/`
 
+By default, the encoder is trained with on-the-fly generated synthetic data (`--dataset=syn-balanced`). The dataset argument can be used to change to a real-world dataset (e.g. `--dataset=enzymes`), or an imbalanced class version of a dataset (e.g. `--dataset=syn-imbalanced`). It is recommended to train on a balanced dataset.
+
 ### Usage
 The module `python3 -m subgraph_matching.alignment.py [--query_path=...] [--target_path=...]` provides a utility to obtain all pairs of corresponding matching scores, given a pickle file of the query and target graphs in networkx format. Run the module without these arguments for an example using random graphs. 
 If exact isomorphism mapping is desired, a conflict resolution algorithm can be applied on the

@@ -219,7 +219,7 @@ def build_optimizer(args, params):
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.opt_restart)
     return scheduler, optimizer
 
-def batch_nx_graphs(graphs, anchors=None):#, node_attrs=None):
+def batch_nx_graphs(graphs, anchors=None):
     #motifs_batch = [pyg_utils.from_networkx(
     #    nx.convert_node_labels_to_integers(graph)) for graph in graphs]
     #loader = DataLoader(motifs_batch, batch_size=len(motifs_batch))

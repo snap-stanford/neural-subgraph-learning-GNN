@@ -51,37 +51,8 @@ def load_dataset(name):
         dataset = PPI(root="/tmp/PPI")
     elif name == "qm9":
         dataset = QM9(root="/tmp/QM9")
-    elif name == 'diseasome' or name == 'usroads':
-        fn = {"diseasome": "bio-diseasome.mtx",
-            "usroads": "road-usroads.mtx"}
-        graph = nx.Graph()
-        with open("data/{}".format(fn[name]), "r") as f:
-            for line in f:
-                if not line.strip(): continue
-                a, b = line.strip().split(" ")
-                graph.add_edge(int(a), int(b))
-        dataset = [graph]
-        task = 'graph'
-    elif name == "syn":
-        with open("data/motifs-bigger.p", "rb") as f:
-            dataset = pickle.load(f)
     elif name == "atlas":
         dataset = [g for g in nx.graph_atlas_g()[1:] if nx.is_connected(g)]
-    elif name == "comb-syn":
-        base = "/dfs/scratch0/rexy/2020/motif-mining/data/comb-data"
-        dataset = []
-        for fn in sorted(os.listdir(base)):
-            path = os.path.join(base, fn)
-            print(fn)
-            if path.endswith(".g6") and "graph2c" not in fn:
-                dataset += [g for g in nx.read_graph6(path) if
-                    nx.is_connected(g)]
-            elif path.endswith(".pkl") and "neg" not in fn:
-                with open(path, "rb") as f:
-                    for g in pickle.load(f):
-                        g.remove_nodes_from(list(nx.isolates(g)))
-                        dataset.append(g)
-                    #dataset += pickle.load(f)
     if task == "graph":
         train_len = int(0.8 * len(dataset))
         train, test = [], []
@@ -91,8 +62,6 @@ def load_dataset(name):
         for i, graph in tqdm(enumerate(dataset)):
             if not type(graph) == nx.Graph:
                 if has_name: del graph.name
-                #graph = pyg_utils.to_networkx(graph,
-                #    node_attrs=["x"]).to_undirected()
                 graph = pyg_utils.to_networkx(graph).to_undirected()
             if i < train_len:
                 train.append(graph)
@@ -243,8 +212,8 @@ class OTFSynImbalancedDataSource(OTFSynDataSource):
     """ Imbalanced on-the-fly synthetic data.
 
     Unlike the balanced dataset, this data source does not use 1:1 ratio for
-    positive and negative examples. Instead, it randomly sample 2 graphs from
-    the on-the-fly generator, and record the groundtruth label for the pair (subgraph or not).
+    positive and negative examples. Instead, it randomly samples 2 graphs from
+    the on-the-fly generator, and records the groundtruth label for the pair (subgraph or not).
     As a result, the data is imbalanced (subgraph relationships are rarer).
     This setting is a challenging model inference scenario.
     """
@@ -295,7 +264,101 @@ class OTFSynImbalancedDataSource(OTFSynDataSource):
         self.batch_idx += 1
         return pos_a, pos_b, neg_a, neg_b
 
+class DiskDataSource(DataSource):
+    """ Uses a set of graphs saved in a dataset file to train the subgraph model.
+
+    At every iteration, new batch of graphs (positive and negative) are generated
+    by sampling subgraphs from a given dataset.
+
+    See the load_dataset function for supported datasets.
+    """
+    def __init__(self, dataset_name, node_anchored=False, min_size=5,
+        max_size=29):
+        self.node_anchored = node_anchored
+        self.dataset = load_dataset(dataset_name)
+        self.min_size = min_size
+        self.max_size = max_size
+
+    def gen_data_loaders(self, size, batch_size, train=True,
+        use_distributed_sampling=False):
+        loaders = [[batch_size]*(size // batch_size) for i in range(3)]
+        return loaders
+
+    def gen_batch(self, a, b, c, train, max_size=15, min_size=5, seed=None,
+        filter_negs=False, sample_method="tree-pair"):
+        batch_size = a
+        train_set, test_set, task = self.dataset
+        graphs = train_set if train else test_set
+        if seed is not None:
+            random.seed(seed)
+
+        pos_a, pos_b = [], []
+        pos_a_anchors, pos_b_anchors = [], []
+        for i in range(batch_size // 2):
+            if sample_method == "tree-pair":
+                size = random.randint(min_size+1, max_size)
+                graph, a = utils.sample_neigh(graphs, size)
+                b = a[:random.randint(min_size, len(a) - 1)]
+            elif sample_method == "subgraph-tree":
+                graph = None
+                while graph is None or len(graph) < min_size + 1:
+                    graph = random.choice(graphs)
+                a = graph.nodes
+                _, b = utils.sample_neigh([graph], random.randint(min_size,
+                    len(graph) - 1))
+            if self.node_anchored:
+                anchor = list(graph.nodes)[0]
+                pos_a_anchors.append(anchor)
+                pos_b_anchors.append(anchor)
+            neigh_a, neigh_b = graph.subgraph(a), graph.subgraph(b)
+            pos_a.append(neigh_a)
+            pos_b.append(neigh_b)
+
+        neg_a, neg_b = [], []
+        neg_a_anchors, neg_b_anchors = [], []
+        while len(neg_a) < batch_size // 2:
+            if sample_method == "tree-pair":
+                size = random.randint(min_size+1, max_size)
+                graph_a, a = utils.sample_neigh(graphs, size)
+                graph_b, b = utils.sample_neigh(graphs, random.randint(min_size,
+                    size - 1))
+            elif sample_method == "subgraph-tree":
+                graph_a = None
+                while graph_a is None or len(graph_a) < min_size + 1:
+                    graph_a = random.choice(graphs)
+                a = graph_a.nodes
+                graph_b, b = utils.sample_neigh(graphs, random.randint(min_size,
+                    len(graph_a) - 1))
+            if self.node_anchored:
+                neg_a_anchors.append(list(graph_a.nodes)[0])
+                neg_b_anchors.append(list(graph_b.nodes)[0])
+            neigh_a, neigh_b = graph_a.subgraph(a), graph_b.subgraph(b)
+            if filter_negs:
+                matcher = nx.algorithms.isomorphism.GraphMatcher(neigh_a, neigh_b)
+                if matcher.subgraph_is_isomorphic(): # a <= b (b is subgraph of a)
+                    continue
+            neg_a.append(neigh_a)
+            neg_b.append(neigh_b)
+
+        pos_a = utils.batch_nx_graphs(pos_a, anchors=pos_a_anchors if
+            self.node_anchored else None)
+        pos_b = utils.batch_nx_graphs(pos_b, anchors=pos_b_anchors if
+            self.node_anchored else None)
+        neg_a = utils.batch_nx_graphs(neg_a, anchors=neg_a_anchors if
+            self.node_anchored else None)
+        neg_b = utils.batch_nx_graphs(neg_b, anchors=neg_b_anchors if
+            self.node_anchored else None)
+        return pos_a, pos_b, neg_a, neg_b
+
 class DiskImbalancedDataSource(OTFSynDataSource):
+    """ Imbalanced on-the-fly real data.
+
+    Unlike the balanced dataset, this data source does not use 1:1 ratio for
+    positive and negative examples. Instead, it randomly samples 2 graphs from
+    the on-the-fly generator, and records the groundtruth label for the pair (subgraph or not).
+    As a result, the data is imbalanced (subgraph relationships are rarer).
+    This setting is a challenging model inference scenario.
+    """
     def __init__(self, dataset_name, max_size=29, min_size=5, n_workers=4,
         max_queue_size=256, node_anchored=False):
         super().__init__(max_size=max_size, min_size=min_size,

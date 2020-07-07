@@ -60,8 +60,7 @@ def parse_encoder(parser):
 
     parser.set_defaults(conv_type='SAGE',
                         method_type='order',
-                        dataset='otf-syn',
-                        dataset_type='otf-syn',
+                        dataset='syn',
                         n_layers=8,
                         batch_size=64,
                         hidden_dim=64,
