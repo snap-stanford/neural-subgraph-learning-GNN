@@ -1,7 +1,7 @@
 """Train the order embedding model"""
 
 # Set this flag to True to use hyperparameter optimization
-HYPERPARAM_SEARCH = True
+HYPERPARAM_SEARCH = False
 HYPERPARAM_SEARCH_N_TRIALS = 20   # how many random search trials to run
 
 import argparse
