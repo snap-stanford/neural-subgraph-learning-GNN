@@ -1,7 +1,8 @@
 """Train the order embedding model"""
 
 # Set this flag to True to use hyperparameter optimization
-HYPERPARAM_SEARCH = False
+HYPERPARAM_SEARCH = True
+HYPERPARAM_SEARCH_N_TRIALS = 20   # how many random search trials to run
 
 import argparse
 from itertools import permutations
@@ -129,19 +130,7 @@ def train(args, model, logger, in_queue, out_queue):
 
             out_queue.put(("step", (loss.item(), acc)))
 
-def main(force_test=False):
-    mp.set_start_method("spawn", force=True)
-    parser = (argparse.ArgumentParser(description='Order embedding arguments')
-        if not HYPERPARAM_SEARCH else
-        HyperOptArgumentParser(strategy='grid_search'))
-
-    utils.parse_optimizer(parser)
-    parse_encoder(parser)
-    args = parser.parse_args()
-
-    if force_test:
-        args.test = True
-
+def train_loop(args):
     if not os.path.exists(os.path.dirname(args.model_path)):
         os.makedirs(os.path.dirname(args.model_path))
     if not os.path.exists("plots/"):
@@ -208,6 +197,27 @@ def main(force_test=False):
         in_queue.put(("done", None))
     for worker in workers:
         worker.join()
+
+def main(force_test=False):
+    mp.set_start_method("spawn", force=True)
+    parser = (argparse.ArgumentParser(description='Order embedding arguments')
+        if not HYPERPARAM_SEARCH else
+        HyperOptArgumentParser(strategy='grid_search'))
+
+    utils.parse_optimizer(parser)
+    parse_encoder(parser)
+    args = parser.parse_args()
+
+    if force_test:
+        args.test = True
+
+    if HYPERPARAM_SEARCH:
+        for i, hparam_trial in enumerate(args.trials(HYPERPARAM_SEARCH_N_TRIALS)):
+            print("Running hyperparameter search trial", i)
+            print(hparam_trial)
+            train_loop(hparam_trial)
+    else:
+        train_loop(args)
 
 if __name__ == '__main__':
     main()
