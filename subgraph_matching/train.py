@@ -2,8 +2,8 @@
 
 # Set this flag to True to use hyperparameter optimization
 HYPERPARAM_SEARCH = False
-HYPERPARAM_SEARCH_N_TRIALS = 20   # how many grid search trials to run
-                                  #    (set to None for exhaustive search)
+HYPERPARAM_SEARCH_N_TRIALS = None   # how many grid search trials to run
+                                    #    (set to None for exhaustive search)
 
 import argparse
 from itertools import permutations
