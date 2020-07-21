@@ -1,6 +1,7 @@
 """Train the order embedding model"""
 
 # Set this flag to True to use hyperparameter optimization
+# We use Testtube for hyperparameter tuning
 HYPERPARAM_SEARCH = False
 HYPERPARAM_SEARCH_N_TRIALS = None   # how many grid search trials to run
                                     #    (set to None for exhaustive search)
@@ -212,6 +213,9 @@ def main(force_test=False):
     if force_test:
         args.test = True
 
+    # Currently due to parallelism in multi-gpu training, this code performs
+    # sequential hyperparameter tuning.
+    # All gpus are used for every run of training in hyperparameter search.
     if HYPERPARAM_SEARCH:
         for i, hparam_trial in enumerate(args.trials(HYPERPARAM_SEARCH_N_TRIALS)):
             print("Running hyperparameter search trial", i)
