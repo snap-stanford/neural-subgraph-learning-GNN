@@ -143,7 +143,7 @@ def train_loop(args):
     print("Using dataset {}".format(args.dataset))
 
     record_keys = ["conv_type", "n_layers", "hidden_dim",
-        "margin", "dataset", "dataset_type", "max_graph_size", "skip"]
+        "margin", "dataset", "max_graph_size", "skip"]
     args_str = ".".join(["{}={}".format(k, v)
         for k, v in sorted(vars(args).items()) if k in record_keys])
     logger = SummaryWriter(comment=args_str)
