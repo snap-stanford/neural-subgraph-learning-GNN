@@ -21,16 +21,15 @@ def validation(args, model, test_pts, logger, batch_n, epoch, verbose=False):
         labels = torch.tensor([1]*(pos_a.num_graphs if pos_a else 0) +
             [0]*neg_a.num_graphs).to(utils.get_device())
         with torch.no_grad():
-            if args.dataset_type in ["real", "otf-syn"]:
-                emb_neg_a, emb_neg_b = (model.emb_model(neg_a),
-                    model.emb_model(neg_b))
-                if pos_a:
-                    emb_pos_a, emb_pos_b = (model.emb_model(pos_a),
-                        model.emb_model(pos_b))
-                    emb_as = torch.cat((emb_pos_a, emb_neg_a), dim=0)
-                    emb_bs = torch.cat((emb_pos_b, emb_neg_b), dim=0)
-                else:
-                    emb_as, emb_bs = emb_neg_a, emb_neg_b
+            emb_neg_a, emb_neg_b = (model.emb_model(neg_a),
+                model.emb_model(neg_b))
+            if pos_a:
+                emb_pos_a, emb_pos_b = (model.emb_model(pos_a),
+                    model.emb_model(pos_b))
+                emb_as = torch.cat((emb_pos_a, emb_neg_a), dim=0)
+                emb_bs = torch.cat((emb_pos_b, emb_neg_b), dim=0)
+            else:
+                emb_as, emb_bs = emb_neg_a, emb_neg_b
             pred = model(emb_as, emb_bs)
             raw_pred = model.predict(pred)
             if USE_ORCA_FEATS:
