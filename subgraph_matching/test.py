@@ -125,5 +125,5 @@ def validation(args, model, test_pts, logger, batch_n, epoch, verbose=False):
                     idx += 1
 
 if __name__ == "__main__":
-    from encoder.train import main
+    from subgraph_matching.train import main
     main(force_test=True)
