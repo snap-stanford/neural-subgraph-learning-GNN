@@ -1,5 +1,6 @@
 from collections import defaultdict, Counter
 
+from deepsnap.graph import Graph as DSGraph
 from deepsnap.batch import Batch
 from deepsnap.dataset import GraphDataset
 import torch
@@ -231,7 +232,7 @@ def batch_nx_graphs(graphs, anchors=None):
             for v in g.nodes:
                 g.nodes[v]["node_feature"] = torch.tensor([float(v == anchor)])
 
-    batch = Batch.from_data_list(GraphDataset.list_to_graphs(graphs))
+    batch = Batch.from_data_list([DSGraph(g) for g in graphs])
     batch = augmenter.augment(batch)
     batch = batch.to(get_device())
     return batch

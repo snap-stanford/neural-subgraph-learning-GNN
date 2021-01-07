@@ -182,9 +182,9 @@ class OTFSynDataSource(DataSource):
             int(len(neg_target.G) * 1/2)))
         #hard_neg_idxs = set()
         batch_neg_query = Batch.from_data_list(
-            GraphDataset.list_to_graphs([self.generator.generate(size=len(g))
-                if i not in hard_neg_idxs else g
-                for i, g in enumerate(neg_target.G)]))
+            [DSGraph(self.generator.generate(size=len(g))
+                if i not in hard_neg_idxs else g)
+                for i, g in enumerate(neg_target.G)])
         for i, g in enumerate(batch_neg_query.G):
             g.graph["idx"] = i
         _, neg_query = batch_neg_query.apply_transform_multi(sample_subgraph,
@@ -377,7 +377,7 @@ class DiskImbalancedDataSource(OTFSynDataSource):
                 graph, neigh = utils.sample_neigh(self.train_set if train else
                     self.test_set, random.randint(self.min_size, self.max_size))
                 neighs.append(graph.subgraph(neigh))
-            dataset = GraphDataset(GraphDataset.list_to_graphs(neighs))
+            dataset = GraphDataset(neighs)
             loaders.append(TorchDataLoader(dataset,
                 collate_fn=Batch.collate([]), batch_size=batch_size // 2 if i
                 == 0 else batch_size // 2,
