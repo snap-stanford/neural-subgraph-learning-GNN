@@ -46,7 +46,7 @@ class OrderEmbedder(nn.Module):
         return emb_as, emb_bs
 
     def predict(self, pred):
-        """Predict if a is a subgraph of b (batched)
+        """Predict if b is a subgraph of a (batched), where emb_as, emb_bs = pred.
 
         pred: list (emb_as, emb_bs) of embeddings of graph pairs
 
@@ -60,6 +60,9 @@ class OrderEmbedder(nn.Module):
 
     def criterion(self, pred, intersect_embs, labels):
         """Loss function for order emb.
+        The e term is the amount of violation (if b is a subgraph of a).
+        For positive examples, the e term is minimized (close to 0); 
+        for negative examples, the e term is trained to be at least greater than self.margin.
 
         pred: lists of embeddings outputted by forward
         intersect_embs: not used
