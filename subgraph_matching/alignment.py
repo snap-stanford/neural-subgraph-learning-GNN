@@ -52,7 +52,7 @@ def gen_alignment_matrix(model, query, target, method_type="order"):
         for v in target.nodes:
             batch = utils.batch_nx_graphs([query, target], anchors=[u, v])
             embs = model.emb_model(batch)
-            pred = model(embs[0].unsqueeze(0), embs[1].unsqueeze(0))
+            pred = model(embs[1].unsqueeze(0), embs[0].unsqueeze(0))
             raw_pred = model.predict(pred)
             if method_type == "order":
                 raw_pred = torch.log(raw_pred)
