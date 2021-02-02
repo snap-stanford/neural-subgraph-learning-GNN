@@ -42,8 +42,12 @@ def build_model(args):
     # build model
     if args.method_type == "order":
         model = models.OrderEmbedder(1, args.hidden_dim, args)
+    elif args.method_type == "box":
+        model = models.BoxEmbedder(1, args.hidden_dim, args)
     elif args.method_type == "mlp":
         model = models.BaselineMLP(1, args.hidden_dim, args)
+    elif args.method_type == "ntn":
+        model = models.BaselineNTN(1, args.hidden_dim, args)
     model.to(utils.get_device())
     if args.test and args.model_path:
         model.load_state_dict(torch.load(args.model_path,
@@ -65,6 +69,15 @@ def make_data_source(args):
         if len(toks) == 1 or toks[1] == "balanced":
             data_source = data.DiskDataSource(toks[0],
                 node_anchored=args.node_anchored)
+        elif toks[1] == "balfeats":
+            data_source = data.DiskDataSource(toks[0],
+                node_anchored=args.node_anchored, use_feats=True)
+        elif toks[1] == "randwalk":
+            data_source = data.DiskDataSource(toks[0],
+                node_anchored=args.node_anchored, use_feats=True,
+                sampling_method="random-walks")
+        elif toks[1] == "basis":
+            data_source = data.RandomBasisDataSource(toks[0])
         elif toks[1] == "imbalanced":
             data_source = data.DiskImbalancedDataSource(toks[0],
                 node_anchored=args.node_anchored)
@@ -81,11 +94,13 @@ def train(args, model, logger, in_queue, out_queue):
     out_queue: output queue to an intersection computation worker
     """
     scheduler, opt = utils.build_optimizer(args, model.parameters())
-    if args.method_type == "order":
+    if args.method_type in ["order", "box"]:
         clf_opt = optim.Adam(model.clf_model.parameters(), lr=args.lr)
 
     done = False
+    local_epoch = 0
     while not done:
+        local_epoch += 1
         data_source = make_data_source(args)
         loaders = data_source.gen_data_loaders(args.eval_interval *
             args.batch_size, args.batch_size, train=True)
@@ -98,7 +113,8 @@ def train(args, model, logger, in_queue, out_queue):
             model.train()
             model.zero_grad()
             pos_a, pos_b, neg_a, neg_b = data_source.gen_batch(batch_target,
-                batch_neg_target, batch_neg_query, True)
+                batch_neg_target, batch_neg_query, True, epoch=local_epoch if
+                args.use_curriculum else None)
             emb_pos_a, emb_pos_b = model.emb_model(pos_a), model.emb_model(pos_b)
             emb_neg_a, emb_neg_b = model.emb_model(neg_a), model.emb_model(neg_b)
             #print(emb_pos_a.shape, emb_neg_a.shape, emb_neg_b.shape)
@@ -115,7 +131,7 @@ def train(args, model, logger, in_queue, out_queue):
             if scheduler:
                 scheduler.step()
 
-            if args.method_type == "order":
+            if args.method_type in ["order", "box"]:
                 with torch.no_grad():
                     pred = model.predict(pred)
                 model.clf_model.zero_grad()
@@ -151,7 +167,7 @@ def train_loop(args):
     model = build_model(args)
     model.share_memory()
 
-    if args.method_type == "order":
+    if args.method_type in ["order", "box"]:
         clf_opt = optim.Adam(model.clf_model.parameters(), lr=args.lr)
     else:
         clf_opt = None

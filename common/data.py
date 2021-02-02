@@ -24,8 +24,9 @@ import scipy.stats as stats
 from common import combined_syn
 from common import feature_preprocess
 from common import utils
+from common.random_basis_dataset import RandomBasisDataset, toGT
 
-def load_dataset(name):
+def load_dataset(name, get_feats=False):
     """ Load real-world datasets, available in PyTorch Geometric.
 
     Used as a helper for DiskDataSource.
@@ -37,6 +38,12 @@ def load_dataset(name):
         dataset = TUDataset(root="/tmp/PROTEINS", name="PROTEINS")
     elif name == "cox2":
         dataset = TUDataset(root="/tmp/cox2", name="COX2")
+    elif name == "dd":
+        dataset = TUDataset(root="/tmp/DD", name="DD")
+    elif name == "msrc":
+        dataset = TUDataset(root="/tmp/MSRC_21", name="MSRC_21")
+    elif name == "mmdb":
+        dataset = TUDataset(root="/tmp/FIRSTMM_DB", name="FIRSTMM_DB")
     elif name == "aids":
         dataset = TUDataset(root="/tmp/AIDS", name="AIDS")
     elif name == "reddit-binary":
@@ -62,7 +69,13 @@ def load_dataset(name):
         for i, graph in tqdm(enumerate(dataset)):
             if not type(graph) == nx.Graph:
                 if has_name: del graph.name
-                graph = pyg_utils.to_networkx(graph).to_undirected()
+                if get_feats:
+                    graph = pyg_utils.to_networkx(graph,
+                        node_attrs=["x"]).to_undirected()
+                    for v in graph:
+                        graph.nodes[v]["feat"] = graph.nodes[v]["x"]
+                else:
+                    graph = pyg_utils.to_networkx(graph).to_undirected()
             if i < train_len:
                 train.append(graph)
             else:
@@ -107,7 +120,7 @@ class OTFSynDataSource(DataSource):
         return loaders
 
     def gen_batch(self, batch_target, batch_neg_target, batch_neg_query,
-        train):
+        train, epoch=None):
         def sample_subgraph(graph, offset=0, use_precomp_sizes=False,
             filter_negs=False, supersample_small_graphs=False, neg_target=None,
             hard_neg_idxs=None):
@@ -264,6 +277,46 @@ class OTFSynImbalancedDataSource(OTFSynDataSource):
         self.batch_idx += 1
         return pos_a, pos_b, neg_a, neg_b
 
+class RandomBasisDataSource(DataSource):
+    def __init__(self, dataset_name, node_anchored=False, min_size=5,
+        max_size=29):
+        self.dataset = load_dataset(dataset_name, get_feats=True)
+    
+    def gen_data_loaders(self, size, batch_size, train=True,
+        use_distributed_sampling=False):
+        loaders = [[batch_size]*(size // batch_size) for i in range(3)]
+        return loaders
+
+    def gen_batch(self, a, b, c, train, max_size=15, min_size=5, seed=None,
+        filter_negs=False, epoch=None):
+        batch_size = a
+        train_data, test_data, _ = self.dataset
+        basis_dataset = RandomBasisDataset(train_data if train else test_data,
+            batch_size, induced=True, phase="all" if train else "center")#, sample_neighborhoods=True)
+        if epoch is not None:
+            basis_dataset.set_query_hops(min(epoch, 4))
+            print("USING", basis_dataset.query_hops, "HOPS")
+        pos_a, pos_b, neg_a, neg_b = [], [], [], []
+        pos_a_anchors, pos_b_anchors, neg_a_anchors, neg_b_anchors = [], [], [], []
+        for (query_adj, query_feat, center, neighborhood_adj, neighborhood_feat,
+            neighborhood_center, label, idx) in basis_dataset:
+            if label == 1:
+                pos_a.append(toGT(neighborhood_adj[0], neighborhood_feat))
+                pos_b.append(toGT(query_adj[0], query_feat))
+                pos_a_anchors.append(neighborhood_center)
+                pos_b_anchors.append(center)
+            else:
+                neg_a.append(toGT(neighborhood_adj[0], neighborhood_feat))
+                neg_b.append(toGT(query_adj[0], query_feat))
+                neg_a_anchors.append(neighborhood_center)
+                neg_b_anchors.append(center)
+
+        pos_a = utils.batch_nx_graphs(pos_a, anchors=pos_a_anchors)
+        pos_b = utils.batch_nx_graphs(pos_b, anchors=pos_b_anchors)
+        neg_a = utils.batch_nx_graphs(neg_a, anchors=neg_a_anchors)
+        neg_b = utils.batch_nx_graphs(neg_b, anchors=neg_b_anchors)
+        return pos_a, pos_b, neg_a, neg_b
+
 class DiskDataSource(DataSource):
     """ Uses a set of graphs saved in a dataset file to train the subgraph model.
 
@@ -273,11 +326,14 @@ class DiskDataSource(DataSource):
     See the load_dataset function for supported datasets.
     """
     def __init__(self, dataset_name, node_anchored=False, min_size=5,
-        max_size=29):
+        max_size=29, use_feats=False, sampling_method="tree-pair"):
         self.node_anchored = node_anchored
-        self.dataset = load_dataset(dataset_name)
+        self.dataset = (load_dataset(dataset_name, get_feats=use_feats)
+            if dataset_name != "syn" else None)
         self.min_size = min_size
         self.max_size = max_size
+        self.use_feats = use_feats
+        self.sampling_method = sampling_method
 
     def gen_data_loaders(self, size, batch_size, train=True,
         use_distributed_sampling=False):
@@ -286,6 +342,7 @@ class DiskDataSource(DataSource):
 
     def gen_batch(self, a, b, c, train, max_size=15, min_size=5, seed=None,
         filter_negs=False, sample_method="tree-pair"):
+        sample_method = self.sampling_method
         batch_size = a
         train_set, test_set, task = self.dataset
         graphs = train_set if train else test_set
@@ -295,9 +352,10 @@ class DiskDataSource(DataSource):
         pos_a, pos_b = [], []
         pos_a_anchors, pos_b_anchors = [], []
         for i in range(batch_size // 2):
-            if sample_method == "tree-pair":
+            if sample_method in ["tree-pair", "random-walks"]:
                 size = random.randint(min_size+1, max_size)
-                graph, a = utils.sample_neigh(graphs, size)
+                graph, a = utils.sample_neigh(graphs, size,
+                    method=sample_method)
                 b = a[:random.randint(min_size, len(a) - 1)]
             elif sample_method == "subgraph-tree":
                 graph = None
@@ -317,11 +375,12 @@ class DiskDataSource(DataSource):
         neg_a, neg_b = [], []
         neg_a_anchors, neg_b_anchors = [], []
         while len(neg_a) < batch_size // 2:
-            if sample_method == "tree-pair":
+            if sample_method in ["tree-pair", "random-walks"]:
                 size = random.randint(min_size+1, max_size)
-                graph_a, a = utils.sample_neigh(graphs, size)
+                graph_a, a = utils.sample_neigh(graphs, size,
+                    method=sample_method)
                 graph_b, b = utils.sample_neigh(graphs, random.randint(min_size,
-                    size - 1))
+                    size - 1), method=sample_method)
             elif sample_method == "subgraph-tree":
                 graph_a = None
                 while graph_a is None or len(graph_a) < min_size + 1:
@@ -360,13 +419,20 @@ class DiskImbalancedDataSource(OTFSynDataSource):
     This setting is a challenging model inference scenario.
     """
     def __init__(self, dataset_name, max_size=29, min_size=5, n_workers=4,
-        max_queue_size=256, node_anchored=False):
+        max_queue_size=256, node_anchored=False, use_whole_targets=False,
+        use_feats=False, target_larger=True):
         super().__init__(max_size=max_size, min_size=min_size,
             n_workers=n_workers, node_anchored=node_anchored)
         self.batch_idx = 0
-        self.dataset = load_dataset(dataset_name)
+        self.dataset = (load_dataset(dataset_name, get_feats=use_feats)
+            if dataset_name != "syn" else (None, None, None))
         self.train_set, self.test_set, _ = self.dataset
         self.dataset_name = dataset_name
+        self.use_whole_targets = use_whole_targets
+        self.use_feats = use_feats
+        self.fn_prefix = "data/cache/imbalanced"
+        self.use_precomputed_positives = False
+        self.target_larger = target_larger
 
     def gen_data_loaders(self, size, batch_size, train=True,
         use_distributed_sampling=False):
@@ -374,9 +440,13 @@ class DiskImbalancedDataSource(OTFSynDataSource):
         for i in range(2):
             neighs = []
             for j in range(size // 2):
-                graph, neigh = utils.sample_neigh(self.train_set if train else
-                    self.test_set, random.randint(self.min_size, self.max_size))
-                neighs.append(graph.subgraph(neigh))
+                if self.use_whole_targets and i == 0:
+                    neighs.append(random.choice(self.train_set if train else
+                        self.test_set))
+                else:
+                    graph, neigh = utils.sample_neigh(self.train_set if train else
+                        self.test_set, random.randint(self.min_size, self.max_size))
+                    neighs.append(graph.subgraph(neigh))
             dataset = GraphDataset(GraphDataset.list_to_graphs(neighs))
             loaders.append(TorchDataLoader(dataset,
                 collate_fn=Batch.collate([]), batch_size=batch_size // 2 if i
@@ -393,16 +463,25 @@ class DiskImbalancedDataSource(OTFSynDataSource):
                     or not self.node_anchored else torch.zeros(1))
             return g
         pos_a, pos_b, neg_a, neg_b = [], [], [], []
-        fn = "data/cache/imbalanced-{}-{}-{}".format(self.dataset_name.lower(),
-            str(self.node_anchored), self.batch_idx)
+        fn = "{}-{}-{}-{}-{}-{}-{}".format(self.fn_prefix,
+            self.dataset_name.lower(),
+            str(self.node_anchored), str(self.use_whole_targets),
+            str(self.use_feats), str(self.target_larger),
+            self.batch_idx)
         if not os.path.exists(fn):
+            print("making new data")
             graphs_a = graphs_a.apply_transform(add_anchor)
             graphs_b = graphs_b.apply_transform(add_anchor)
-            for graph_a, graph_b in tqdm(list(zip(graphs_a.G, graphs_b.G))):
+            for i, (graph_a, graph_b) in tqdm(enumerate(list(zip(graphs_a.G,
+                graphs_b.G)))):
+                if self.target_larger:
+                    if len(graph_a) < len(graph_b):
+                        graph_a, graph_b = graph_b, graph_a
                 matcher = nx.algorithms.isomorphism.GraphMatcher(graph_a, graph_b,
                     node_match=(lambda a, b: (a["node_feature"][0] > 0.5) ==
                     (b["node_feature"][0] > 0.5)) if self.node_anchored else None)
-                if matcher.subgraph_is_isomorphic():
+                if ((self.use_precomputed_positives and i % 2 == 0) or
+                    matcher.subgraph_is_isomorphic()):
                     pos_a.append(graph_a)
                     pos_b.append(graph_b)
                 else:
@@ -414,6 +493,7 @@ class DiskImbalancedDataSource(OTFSynDataSource):
                 pickle.dump((pos_a, pos_b, neg_a, neg_b), f)
             print("saved", fn)
         else:
+            print("loading data")
             with open(fn, "rb") as f:
                 print("loaded", fn)
                 pos_a, pos_b, neg_a, neg_b = pickle.load(f)
@@ -425,6 +505,72 @@ class DiskImbalancedDataSource(OTFSynDataSource):
         neg_b = utils.batch_nx_graphs(neg_b)
         self.batch_idx += 1
         return pos_a, pos_b, neg_a, neg_b
+
+class PerturbTargetDataSource(DiskImbalancedDataSource):
+    def gen_data_loaders(self, size, batch_size, train=True,
+        use_distributed_sampling=False):
+        #print("PERTURB")
+        self.fn_prefix = "data/cache/imbalanced-perturb"
+        self.max_size = 40
+        self.use_precomputed_positives = True
+        all_neighs = []
+        self.generator = combined_syn.get_generator(np.arange(
+            self.min_size + 1, self.max_size + 1))
+
+        for i in range(2):
+            neighs = []
+            for j in range(size // 2):
+                if i == 0:
+                    if self.use_whole_targets:
+                        found = False
+                        while not found:
+                            neigh = random.choice(self.train_set if train else
+                                self.test_set)
+                            if len(neigh) > 5:
+                                found = True
+                        neighs.append(neigh)
+                    else:
+                        if self.dataset_name == "syn":
+                            neighs.append(self.generator.generate(size=random.randint(
+                                20, self.max_size)))
+                        else:
+                            graph, neigh = utils.sample_neigh(self.train_set if
+                                train else self.test_set, random.randint(
+                                    20, self.max_size))
+                            neighs.append(graph.subgraph(neigh))
+                else:
+                    if self.use_whole_targets:
+                        graph, neigh = utils.sample_neigh(self.train_set if
+                            train else self.test_set, random.randint(
+                                self.min_size, min(self.max_size, len(all_neighs[0][j]))))
+                        neighs.append(graph.subgraph(neigh))
+                        if i == 1 and j % 2 == 0:
+                            all_neighs[0][j] = graph
+                    else:
+                        if self.dataset_name == "syn":
+                            tgt_graph = self.generator.generate(size=len(
+                                all_neighs[0][j]))
+                        else:
+                            tgt_graph, tgt = utils.sample_neigh(self.train_set if
+                                train else self.test_set, len(all_neighs[0][j]))
+                            tgt_graph = tgt_graph.subgraph(tgt)
+                        qry_graph, qry = utils.sample_neigh([tgt_graph],
+                            random.randint(self.min_size, len(tgt_graph)))
+                            #random.randint(self.min_size, 20))
+                        neighs.append(qry_graph.subgraph(qry))
+                        if i == 1 and j % 2 == 0:
+                            all_neighs[0][j] = tgt_graph
+
+            all_neighs.append(neighs)
+        loaders = []
+        for i in range(2):
+            dataset = GraphDataset(GraphDataset.list_to_graphs(all_neighs[i]))
+            loaders.append(TorchDataLoader(dataset,
+                collate_fn=Batch.collate([]), batch_size=batch_size // 2 if i
+                == 0 else batch_size // 2,
+                sampler=None, shuffle=False))
+        loaders.append([None]*(size // batch_size))
+        return loaders
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt

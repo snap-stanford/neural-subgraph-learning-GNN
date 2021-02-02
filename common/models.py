@@ -32,6 +32,93 @@ class BaselineMLP(nn.Module):
     def criterion(self, pred, _, label):
         return F.nll_loss(pred, label)
 
+# neural tensor network
+class BaselineNTN(nn.Module):
+    def __init__(self, input_dim, hidden_dim, args):
+        super(BaselineNTN, self).__init__()
+        self.emb_model = SkipLastGNN(input_dim, hidden_dim, hidden_dim, args)
+        self.bilinear = nn.Bilinear(hidden_dim, hidden_dim, hidden_dim)
+        self.linear = nn.Linear(2 * hidden_dim, hidden_dim)
+        self.linear2 = nn.Linear(hidden_dim, 2)
+
+    def forward(self, emb_motif, emb_motif_mod):
+        bilin_out = self.bilinear(emb_motif, emb_motif_mod)
+        lin_out = self.linear(torch.cat((emb_motif, emb_motif_mod), dim=1))
+        pred = self.linear2(F.relu(bilin_out + lin_out))
+        pred = F.log_softmax(pred, dim=1)
+        return pred
+
+    def predict(self, pred):
+        return pred#.argmax(dim=1)
+
+    def criterion(self, pred, _, label):
+        return F.nll_loss(pred, label)
+
+class BoxEmbedder(nn.Module):
+    def __init__(self, input_dim, hidden_dim, args):
+        super(BoxEmbedder, self).__init__()
+        self.emb_model = SkipLastGNN(input_dim, hidden_dim, hidden_dim, args)
+        self.margin = args.margin
+        self.use_intersection = False
+        self.regularization = 0
+        self.clf_model = nn.Sequential(nn.Linear(1, 2), nn.LogSoftmax(dim=-1))
+
+    def forward(self, emb_as, emb_bs):
+        return emb_as, emb_bs
+        #return torch.exp(emb_as), torch.exp(emb_bs)
+
+    def get_lr(self, embs):
+        half = embs.shape[-1] // 2
+        embs_l, embs_d = embs[:,:half], embs[:,half:]
+        embs_r = embs_l + torch.abs(embs_d)
+        return -embs_l, embs_r
+
+    def predict(self, pred):
+        """Predict if a is a subgraph of b (batched)
+
+        pred: list (emb_as, emb_bs) of embeddings of graph pairs
+
+        Returns: list of bools (whether a is subgraph of b in the pair)
+        """
+        emb_as, emb_bs = pred
+        #half = emb_as.shape[-1] // 2
+        #emb_as_l, emb_as_r = -emb_as[:,:half], emb_as[:,half:]
+        #emb_bs_l, emb_bs_r = -emb_bs[:,:half], emb_bs[:,half:]
+        emb_as_l, emb_as_r = self.get_lr(emb_as)
+        emb_bs_l, emb_bs_r = self.get_lr(emb_bs)
+
+        #return (torch.sum(emb_as + 1e-2 - emb_bs >= 0, dim=1) ==
+        #    emb_as.shape[0]).type(torch.long)
+        #print(emb_as - emb_bs)
+        return ((torch.sum(emb_as_l - emb_bs_l, dim=1) 
+             + (torch.sum(emb_bs_r - emb_as_r , dim=1))))
+
+    def criterion(self, pred, intersect_embs, labels):
+        """Loss function for box emb.
+
+        pred: lists of embeddings outputted by forward
+        intersect_embs: not used
+        labels: subgraph labels for each entry in pred
+        """
+        emb_as, emb_bs = pred
+        #half = emb_as.shape[-1] // 2
+        #emb_as_l, emb_as_r = -emb_as[:,:half], emb_as[:,half:]
+        #emb_bs_l, emb_bs_r = -emb_bs[:,:half], emb_bs[:,half:]
+        emb_as_l, emb_as_r = self.get_lr(emb_as)
+        emb_bs_l, emb_bs_r = self.get_lr(emb_bs)
+        e = torch.sum(torch.max(torch.zeros_like(emb_as_l,
+            device=utils.get_device()), emb_bs_l - emb_as_l)**2, dim=1)
+        e[labels == 0] = torch.max(torch.tensor(0.0,
+            device=utils.get_device()), self.margin - e)[labels == 0]
+        e2 = torch.sum(torch.max(torch.zeros_like(emb_as_r,
+            device=utils.get_device()), emb_bs_r - emb_as_r)**2, dim=1)
+        e2[labels == 0] = torch.max(torch.tensor(0.0,
+            device=utils.get_device()), self.margin - e2)[labels == 0]
+
+        reg = torch.sum(emb_as**2) + torch.sum(emb_bs**2)   # TODO: exact reg
+        relation_loss = torch.sum(e) + torch.sum(e2) + self.regularization*reg
+        return relation_loss
+
 # Order embedder model -- contains a graph embedding model `emb_model`
 class OrderEmbedder(nn.Module):
     def __init__(self, input_dim, hidden_dim, args):

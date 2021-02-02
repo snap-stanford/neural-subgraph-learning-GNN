@@ -14,28 +14,55 @@ from tqdm import tqdm
 
 from common import feature_preprocess
 
-def sample_neigh(graphs, size):
-    ps = np.array([len(g) for g in graphs], dtype=np.float)
-    ps /= np.sum(ps)
-    dist = stats.rv_discrete(values=(np.arange(len(graphs)), ps))
-    while True:
-        idx = dist.rvs()
-        #graph = random.choice(graphs)
-        graph = graphs[idx]
-        start_node = random.choice(list(graph.nodes))
-        neigh = [start_node]
-        frontier = list(set(graph.neighbors(start_node)) - set(neigh))
-        visited = set([start_node])
-        while len(neigh) < size and frontier:
-            new_node = random.choice(list(frontier))
-            #new_node = max(sorted(frontier))
-            assert new_node not in neigh
-            neigh.append(new_node)
-            visited.add(new_node)
-            frontier += list(graph.neighbors(new_node))
-            frontier = [x for x in frontier if x not in visited]
-        if len(neigh) == size:
-            return graph, neigh
+def sample_neigh(graphs, size, method="tree-pair"):
+    if method == "tree-pair":
+        ps = np.array([len(g) for g in graphs], dtype=np.float)
+        ps /= np.sum(ps)
+        dist = stats.rv_discrete(values=(np.arange(len(graphs)), ps))
+        while True:
+            idx = dist.rvs()
+            #graph = random.choice(graphs)
+            graph = graphs[idx]
+            start_node = random.choice(list(graph.nodes))
+            neigh = [start_node]
+            frontier = list(set(graph.neighbors(start_node)) - set(neigh))
+            visited = set([start_node])
+            while len(neigh) < size and frontier:
+                new_node = random.choice(list(frontier))
+                #new_node = max(sorted(frontier))
+                assert new_node not in neigh
+                neigh.append(new_node)
+                visited.add(new_node)
+                frontier += list(graph.neighbors(new_node))
+                frontier = [x for x in frontier if x not in visited]
+            if len(neigh) == size:
+                return graph, neigh
+    elif method == "random-walks":
+        ps = np.array([len(g) for g in graphs], dtype=np.float)
+        ps /= np.sum(ps)
+        dist = stats.rv_discrete(values=(np.arange(len(graphs)), ps))
+        while True:
+            idx = dist.rvs()
+            #graph = random.choice(graphs)
+            graph = graphs[idx]
+            start_node = random.choice(list(graph.nodes))
+            neigh = [start_node]
+            frontier = list(graph.neighbors(start_node))
+            hop = 0
+            for i in range(size - 1):
+                if len(frontier) == 0: break
+                new_node = random.choice(frontier)
+                neigh.append(new_node)
+                hop += 1
+                if hop < 4 and random.random() < 0.75:
+                    cur_node = new_node
+                else:
+                    cur_node = start_node
+                    hop = 0
+                frontier = [x for x in graph.neighbors(cur_node) if x not in
+                    neigh]
+            if len(neigh) == size:
+                return graph, neigh
 
 cached_masks = None
 def vec_hash(v):

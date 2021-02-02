@@ -48,17 +48,56 @@ def gen_alignment_matrix(model, query, target, method_type="order"):
     """
 
     mat = np.zeros((len(query), len(target)))
-    for u in query.nodes:
-        for v in target.nodes:
-            batch = utils.batch_nx_graphs([query, target], anchors=[u, v])
+    with torch.no_grad():
+        query_embs = []
+        for u in query.nodes:
+            batch = utils.batch_nx_graphs([query], anchors=[u])
             embs = model.emb_model(batch)
-            pred = model(embs[0].unsqueeze(0), embs[1].unsqueeze(0))
-            raw_pred = model.predict(pred)
-            if method_type == "order":
-                raw_pred = torch.log(raw_pred)
-            elif method_type == "mlp":
-                raw_pred = raw_pred[0][1]
-            mat[u][v] = raw_pred.item()
+            query_embs.append(embs)
+        target_embs = []
+        for v in target.nodes:
+            target_k_hop = target.subgraph([v] + [w for _, w in
+                nx.bfs_edges(target, v, depth_limit=8)])
+            #print(len(target_k_hop))
+            batch = utils.batch_nx_graphs([target], anchors=[v])
+            embs = model.emb_model(batch)
+            target_embs.append(embs)
+        for u in range(len(query_embs)):
+            for v in range(len(target_embs)):
+                pred = model.predict(model(target_embs[v], query_embs[u]))
+                if method_type == "mlp":
+                    # TODO: negate later
+                    pred = -torch.exp(pred[0][1])
+                mat[u][v] = pred.item()
+
+    #mat = np.zeros((len(query), len(target)))
+    #with torch.no_grad():
+    #    for u in query.nodes:
+    #        for v in target.nodes:
+    #            batch = utils.batch_nx_graphs([query, target], anchors=[u, v])
+    #            embs = model.emb_model(batch)
+    #            pred = model(embs[1].unsqueeze(0), embs[0].unsqueeze(0))
+    #            raw_pred = model.predict(pred)
+    #            if method_type == "order":
+    #                pass
+    #            elif method_type == "mlp":
+    #                raw_pred = raw_pred[0][1]
+    #            mat[u][v] = raw_pred.item()
+
+    #with torch.no_grad():
+    #    for u in query.nodes:
+    #        nodes = list(target.nodes)
+    #        #print(len(target), len(query))
+    #        batch = utils.batch_nx_graphs([query] + [target]*len(nodes),
+    #            anchors=[u] + nodes)
+    #        embs = model.emb_model(batch)
+    #        pred = model(embs[1:], embs[0].unsqueeze(0).expand(len(nodes), -1))
+    #        raw_pred = model.predict(pred)
+    #        if method_type == "order":
+    #            pass
+    #        elif method_type == "mlp":
+    #            raw_pred = raw_pred[0][1]
+    #        mat[u] = raw_pred.detach().cpu().numpy()
     return mat
 
 def main():
