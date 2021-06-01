@@ -304,7 +304,7 @@ class GreedySearchAgent(SearchAgent):
         new_beam_sets = []
         print("seeds come from", len(set(b[0][-1] for b in self.beam_sets)),
             "distinct graphs")
-        print(set(b[0][-1] for b in self.beam_sets))
+        # print(set(b[0][-1] for b in self.beam_sets))
         analyze_embs_cur = []
         for beam_set in tqdm(self.beam_sets):
             new_beams = []
@@ -412,7 +412,7 @@ class GreedySearchAgent(SearchAgent):
                 for hashing_key, neighs in list(sorted(self.counts[pattern_size].items(),
                     key=lambda x: len(x[1]), reverse=True))[:self.out_batch_size]:
                     cand_patterns_uniq.append(random.choice(neighs))
-                    list_graph.append(self.graph_idx_list[pattern_size][hashing_key])
+                    list_graph.append(set(self.graph_idx_list[pattern_size][hashing_key]))
             else:
                 print("Unrecognized rank method")
         return cand_patterns_uniq, list_graph

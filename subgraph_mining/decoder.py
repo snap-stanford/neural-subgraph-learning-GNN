@@ -151,7 +151,7 @@ def pattern_growth(dataset, task, args):
             emb = model.emb_model(batch)
             emb = emb.to(torch.device("cpu"))
 
-            print(emb)
+            # print(emb)
 
         embs.append(emb)
 
@@ -170,14 +170,14 @@ def pattern_growth(dataset, task, args):
             analyze=args.analyze, model_type=args.method_type,
             out_batch_size=args.out_batch_size)
     out_graphs, graph_idx_list = agent.run_search(args.n_trials)
-    print(graph_idx_list)
+    # print(graph_idx_list)
     print(time.time() - start_time, "TOTAL TIME")
     x = int(time.time() - start_time)
     print(x // 60, "mins", x % 60, "secs")
 
     # visualize out patterns
     count_by_size = defaultdict(int)
-    for pattern in out_graphs:
+    for pattern, graph_idx in zip(out_graphs, graph_idx_list):
         if args.node_anchored:
             colors = ["red"] + ["blue"]*(len(pattern)-1)
             nx.draw(pattern, node_color=colors, with_labels=True)
@@ -185,6 +185,8 @@ def pattern_growth(dataset, task, args):
             nx.draw(pattern)
         print("Saving plots/cluster/{}-{}.png".format(len(pattern),
             count_by_size[len(pattern)]))
+        print("Graph idx: ")
+        print(graph_idx)
         plt.savefig("plots/cluster/{}-{}.png".format(len(pattern),
             count_by_size[len(pattern)]))
         plt.savefig("plots/cluster/{}-{}.pdf".format(len(pattern),
