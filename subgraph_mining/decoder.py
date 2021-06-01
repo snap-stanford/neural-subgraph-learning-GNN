@@ -205,14 +205,19 @@ def main():
     parse_encoder(parser)
     parse_decoder(parser)
     args = parser.parse_args()
-    args.dataset = "enzymes"
 
     print("Using dataset {}".format(args.dataset))
     if args.dataset == 'enzymes':
         dataset = TUDataset(root='/tmp/ENZYMES', name='ENZYMES')
         task = 'graph'
     elif args.dataset == 'cox2':
-        dataset = TUDataset(root='/tmp/cox2', name='COX2')
+        dataset = TUDataset(root='/tmp/Cox2', name='COX2')
+        task = 'graph'
+    elif args.dataset == 'cuneiform':
+        dataset = TUDataset(root='/tmp/Cuneiform', name='Cuneiform')
+        task = 'graph'
+    elif args.dataset == 'aids':
+        dataset = TUDataset(root='/tmp/AIDS', name='AIDS')
         task = 'graph'
     elif args.dataset == 'reddit-binary':
         dataset = TUDataset(root='/tmp/REDDIT-BINARY', name='REDDIT-BINARY')
