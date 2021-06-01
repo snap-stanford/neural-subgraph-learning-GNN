@@ -151,6 +151,8 @@ def pattern_growth(dataset, task, args):
             emb = model.emb_model(batch)
             emb = emb.to(torch.device("cpu"))
 
+            print(emb)
+
         embs.append(emb)
 
     if args.analyze:
@@ -167,7 +169,8 @@ def pattern_growth(dataset, task, args):
             model, graphs, embs, node_anchored=args.node_anchored,
             analyze=args.analyze, model_type=args.method_type,
             out_batch_size=args.out_batch_size)
-    out_graphs = agent.run_search(args.n_trials)
+    out_graphs, graph_idx_list = agent.run_search(args.n_trials)
+    print(graph_idx_list)
     print(time.time() - start_time, "TOTAL TIME")
     x = int(time.time() - start_time)
     print(x // 60, "mins", x % 60, "secs")
@@ -192,7 +195,7 @@ def pattern_growth(dataset, task, args):
     if not os.path.exists("results"):
         os.makedirs("results")
     with open(args.out_path, "wb") as f:
-        pickle.dump(out_graphs, f)
+        pickle.dump((out_graphs, graph_idx_list), f)
 
 def main():
     if not os.path.exists("plots/cluster"):
@@ -250,8 +253,7 @@ def main():
         dataset = make_plant_dataset(size)
         task = 'graph'
 
-    pattern_growth(dataset, task, args) 
+    pattern_growth(dataset, task, args)
 
 if __name__ == '__main__':
     main()
-

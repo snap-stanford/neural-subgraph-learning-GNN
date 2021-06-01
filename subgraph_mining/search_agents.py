@@ -78,9 +78,10 @@ class SearchAgent:
         self.model_type = model_type
         self.out_batch_size = out_batch_size
 
-    def run_search(self, n_trials=1000): 
+    def run_search(self, n_trials=1000):
         self.cand_patterns = defaultdict(list)
         self.counts = defaultdict(lambda: defaultdict(list))
+        self.graph_idx_list = defaultdict(lambda: defaultdict(list))
         self.n_trials = n_trials
 
         self.init_search()
@@ -261,12 +262,12 @@ class GreedySearchAgent(SearchAgent):
         """Greedy implementation of the subgraph pattern search.
         At every step, the algorithm chooses greedily the next node to grow while the pattern
         remains predicted to be frequent. The criteria to choose the next action depends
-        on the score predicted by the subgraph matching model 
+        on the score predicted by the subgraph matching model
         (the actual score is determined by the rank_method argument).
 
         Args:
             rank_method: greedy search heuristic requires a score to rank the
-                possible next actions. 
+                possible next actions.
                 If rank_method=='counts', counts of the pattern in search tree is used;
                 if rank_method=='margin', margin score of the pattern predicted by the matching model is
                     used.
@@ -303,6 +304,7 @@ class GreedySearchAgent(SearchAgent):
         new_beam_sets = []
         print("seeds come from", len(set(b[0][-1] for b in self.beam_sets)),
             "distinct graphs")
+        print(set(b[0][-1] for b in self.beam_sets))
         analyze_embs_cur = []
         for beam_set in tqdm(self.beam_sets):
             new_beams = []
@@ -356,6 +358,8 @@ class GreedySearchAgent(SearchAgent):
                 if self.rank_method in ["counts", "hybrid"]:
                     self.counts[len(neigh_g)][utils.wl_hash(neigh_g,
                         node_anchored=self.node_anchored)].append(neigh_g)
+                    self.graph_idx_list[len(neigh_g)][utils.wl_hash(neigh_g,
+                        node_anchored=self.node_anchored)].append(graph_idx)
                 if self.analyze and len(neigh) >= 3:
                     emb = self.model.emb_model(utils.batch_nx_graphs(
                         [neigh_g], anchors=[neigh[0]] if self.node_anchored
@@ -364,6 +368,7 @@ class GreedySearchAgent(SearchAgent):
             if len(new_beams) > 0:
                 new_beam_sets.append(new_beams)
         self.beam_sets = new_beam_sets
+        # print(set(b[0][-1] for b in new_beam_sets))
         self.analyze_embs.append(analyze_embs_cur)
 
     def finish_search(self):
@@ -383,6 +388,7 @@ class GreedySearchAgent(SearchAgent):
             plt.close()
 
         cand_patterns_uniq = []
+        list_graph = []
         for pattern_size in range(self.min_pattern_size, self.max_pattern_size+1):
             if self.rank_method == "hybrid":
                 cur_rank_method = "margin" if len(max(
@@ -403,9 +409,10 @@ class GreedySearchAgent(SearchAgent):
                             cand_patterns_uniq += cand_patterns_uniq_size
                             break
             elif cur_rank_method == "counts":
-                for _, neighs in list(sorted(self.counts[pattern_size].items(),
+                for hashing_key, neighs in list(sorted(self.counts[pattern_size].items(),
                     key=lambda x: len(x[1]), reverse=True))[:self.out_batch_size]:
                     cand_patterns_uniq.append(random.choice(neighs))
+                    list_graph.append(self.graph_idx_list[pattern_size][hashing_key])
             else:
                 print("Unrecognized rank method")
-        return cand_patterns_uniq
+        return cand_patterns_uniq, list_graph
