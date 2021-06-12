@@ -2,16 +2,302 @@
 from functools import reduce
 import random
 
+from itertools import permutations, product
+from scipy.sparse import csr_matrix
+import dgl
+import torch.sparse as tsp
+
 import networkx as nx
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
 import torch_geometric.nn as pyg_nn
 import torch_geometric.utils as pyg_utils
+from sklearn.preprocessing import normalize
 
 from common import utils
 from common import feature_preprocess
+
+# adapted from https://github.com/leichen2018/GNN-Substructure-Counting/tree/main/synthetic
+def Elist(graph):
+    E_list = []
+    for i in range(graph.number_of_nodes()):
+        E_list.append(graph.successors(i).numpy())
+    return E_list
+
+def seq_generate_easy(E_list, start_node, length = 4, full_permutation = False):
+    if full_permutation:
+        all_perm_full = permutations(E_list[start_node])
+        all_perm = [[start_node] + list(p[:length]) for p in all_perm_full]
+        return all_perm
+    else:
+        all_perm = permutations(E_list[start_node], min(length, len(E_list[start_node])))
+        return [[start_node] + list(p) for p in all_perm]
+
+def seq_to_sp_indx(graph, one_perm, subtensor_length):
+    dim_dict = {node:i for i, node in enumerate(one_perm)}
+
+    node_to_length_indx_row = [i + i * subtensor_length for i in range(len(one_perm))]
+    node_to_length_indx_col = one_perm
+
+    product_one_perm = list(product(one_perm, one_perm))
+    query_edge_id_src, query_edge_id_end = [edge[0] for edge in product_one_perm], [edge[1] for edge in product_one_perm]
+    query_edge_result = graph.edge_ids(query_edge_id_src, query_edge_id_end, return_uv = True)
+
+    edge_to_length_indx_row = [int(dim_dict[src.item()] * subtensor_length + dim_dict[end.item()]) for src, end, _ in zip(*query_edge_result)]
+    edge_to_length_indx_col = [int(edge_id.item()) for edge_id in query_edge_result[2]]
+
+    return [np.array(node_to_length_indx_row), np.array(node_to_length_indx_col), np.array(edge_to_length_indx_row), np.array(edge_to_length_indx_col)]
+
+def lrp_helper(graph, subtensor_length = 4, full_permutation = False):
+    num_of_nodes = graph.number_of_nodes()
+    graph_Elist = Elist(graph)
+
+    egonet_seq_graph = []
+
+    for i in range(num_of_nodes):
+        # this_node_perms = seq_generate(graph_Elist, i, 1, split_level = False)
+        this_node_perms = seq_generate_easy(graph_Elist, start_node = i, length = subtensor_length - 1, full_permutation = full_permutation)
+        this_node_egonet_seq = []
+
+        for perm in this_node_perms:
+            this_node_egonet_seq.append(seq_to_sp_indx(graph, perm, subtensor_length))
+        this_node_egonet_seq = np.array(this_node_egonet_seq)
+        egonet_seq_graph.append(this_node_egonet_seq)
+
+    egonet_seq_graph = np.array(egonet_seq_graph)
+
+    return egonet_seq_graph
+def np_sparse_to_pt_sparse(matrix):
+    coo = matrix.tocoo()
+    values = coo.data
+    indices = np.vstack((coo.row, coo.col))
+
+    i = torch.LongTensor(indices)
+    v = torch.FloatTensor(values)
+    shape = coo.shape
+
+    return torch.sparse.FloatTensor(i, v, torch.Size(shape))
+
+def build_perm_pooling_sp_matrix(split_list, pooling = "sum"):
+    dim0, dim1 = len(split_list), sum(split_list)
+    col = np.arange(dim1)
+    row = np.array([i for i, count in enumerate(split_list) for j in range(count)])
+    data = np.ones((dim1, ))
+    pooling_sp_matrix = csr_matrix((data, (row, col)), shape = (dim0, dim1))
+
+    if pooling == "mean":
+        pooling_sp_matrix = normalize(pooling_sp_matrix, norm='l1', axis=1)
+    
+    return np_sparse_to_pt_sparse(pooling_sp_matrix)
+
+def build_batch_graph_node_to_perm_times_length(graphs, lrp_egonet):
+    '''
+        graphs: list of DGLGraph
+        lrp_egonet: list of egonet of graph, dim: #graphs x #nodes x #perms x
+                     (sparse index for length x #nodes or #edges)
+    '''
+    list_num_nodes_in_graphs = [g.number_of_nodes() for g in graphs]
+    sum_num_nodes_before_graphs = [sum(list_num_nodes_in_graphs[:i]) for i in range(len(graphs))]
+    list_num_edges_in_graphs = [g.number_of_edges() for g in graphs]
+    sum_num_edges_before_graphs = [sum(list_num_edges_in_graphs[:i]) for i in range(len(graphs))]
+
+    node_to_perm_length_indx_row = []
+    node_to_perm_length_indx_col = []
+    edge_to_perm_length_indx_row = []
+    edge_to_perm_length_indx_col = []
+
+    sum_row_number = 0
+
+    for i, g_egonet in enumerate(lrp_egonet):
+        for n_egonet in g_egonet:
+            for perm in n_egonet:
+                node_to_perm_length_indx_col.extend(perm[1] + sum_num_nodes_before_graphs[i])
+                node_to_perm_length_indx_row.extend(perm[0] + sum_row_number)
+
+                edge_to_perm_length_indx_col.extend(perm[3] + sum_num_edges_before_graphs[i])
+                edge_to_perm_length_indx_row.extend(perm[2] + sum_row_number)
+
+                sum_row_number += 16
+
+    node_to_perm_length_size_row = sum_row_number
+    node_to_perm_length_size_col = sum(list_num_nodes_in_graphs)
+    edge_to_perm_length_size_row = sum_row_number
+    edge_to_perm_length_size_col = sum(list_num_edges_in_graphs)
+
+    # return node_to_perm_length_indx_row, node_to_perm_length_indx_col
+    # return edge_to_perm_length_indx_row, edge_to_perm_length_indx_col
+    data1 = np.ones((len(node_to_perm_length_indx_col, )))
+    node_to_perm_length_sp_matrix = csr_matrix((data1, (node_to_perm_length_indx_row, node_to_perm_length_indx_col)), shape = (node_to_perm_length_size_row, node_to_perm_length_size_col))
+
+    data2 = np.ones((len(edge_to_perm_length_indx_col, )))
+    edge_to_perm_length_sp_matrix = csr_matrix((data2, (edge_to_perm_length_indx_row, edge_to_perm_length_indx_col)), shape = (edge_to_perm_length_size_row, edge_to_perm_length_size_col))
+
+    return node_to_perm_length_sp_matrix, edge_to_perm_length_sp_matrix
+
+def collate_lrp_dgl_light(samples):
+    graphs, lrp_egonets, labels = map(list, zip(*samples))
+    n_to_pl, e_to_pl = build_batch_graph_node_to_perm_times_length(graphs, lrp_egonets)
+    batched_graph = dgl.batch(graphs)
+    return batched_graph, [len(node) for g in lrp_egonets for node in g], [n_to_pl, e_to_pl], torch.stack(labels)
+
+class LRP_layer(nn.Module):
+    def __init__(self,
+                 lrp_length = 16,
+                 lrp_e_dim = 2,
+                 lrp_in_dim = 2,
+                 lrp_out_dim = 128):
+        super(LRP_layer, self).__init__()
+
+        coeffs_values_3 = lambda i, j, k: torch.randn([i, j, k])
+        coeffs_values_4 = lambda i, j, k, l: torch.randn([i, j, k, l])
+        self.weights = nn.Parameter(coeffs_values_3(lrp_in_dim, lrp_out_dim, lrp_length))
+
+        self.bias = nn.Parameter(torch.zeros(1, lrp_out_dim))
+
+        self.degnet_0, self.degnet_1 = nn.Linear(1, 2 * lrp_out_dim), nn.Linear(2 * lrp_out_dim, lrp_out_dim)
+
+        self.lrp_length = lrp_length
+        self.lrp_e_dim = lrp_e_dim
+        self.lrp_in_dim = lrp_in_dim
+        self.lrp_out_dim = lrp_out_dim
+    
+    def forward(self, nfeat, pooling_matrix, degs, n_to_perm_length_sp_matrix):
+        #nfeat = graph.ndata['h']
+
+        nfeat = tsp.mm(n_to_perm_length_sp_matrix, nfeat)# + tsp.mm(e_to_perm_length_sp_matrix, efeat)
+
+        nfeat = nfeat.transpose(0, 1).view(self.lrp_in_dim, -1, self.lrp_length).permute(1, 2, 0)
+
+        nfeat = F.relu(torch.einsum('dab,bca->dc', nfeat, self.weights) + self.bias)
+        nfeat = tsp.mm(pooling_matrix, nfeat)
+
+        factor_degs = self.degnet_1(F.relu(self.degnet_0(degs.unsqueeze(1))))#.squeeze()
+
+        nfeat = F.relu(torch.einsum('ab,ab->ab', nfeat, factor_degs))
+
+        #graph.ndata['h'] = nfeat
+        return nfeat
+
+
+class LRP(nn.Module):
+    def __init__(self, input_dim,
+                 output_dim,
+                 lrp_length = 16,
+                 #lrp_in_dim = 2,
+                 hid_dim = 128,
+                 num_layers = 1,
+                 bn = False,
+                 mlp = False
+                 ):
+        super(LRP, self).__init__()
+        lrp_in_dim = input_dim
+        
+        self.lrp_list = nn.ModuleList()
+        for i in range(num_layers):
+            if i == 0:
+                self.lrp_list.append(LRP_layer(lrp_length = lrp_length,
+                                                lrp_e_dim = lrp_in_dim,
+                                                lrp_in_dim = lrp_in_dim,
+                                                lrp_out_dim = hid_dim 
+                                                ))
+            else:
+                self.lrp_list.append(LRP_layer(lrp_length = lrp_length,
+                                                lrp_e_dim = 2,
+                                                lrp_in_dim = hid_dim,
+                                                lrp_out_dim = hid_dim 
+                                                ))
+
+        self.final_predict = nn.Linear(hid_dim, output_dim)
+
+        self.bn = bn
+        self.mlp = mlp
+
+        if bn:
+            self.bn_layers = nn.ModuleList([nn.BatchNorm1d(hid_dim) for i in range(num_layers)])
+
+        if mlp:
+            self.mlp_layers = nn.ModuleList([nn.Linear(hid_dim, hid_dim) for i in range(num_layers)])
+
+        if len(feature_preprocess.FEATURE_AUGMENT) > 0:
+            self.feat_preprocess = feature_preprocess.Preprocess(input_dim)
+            input_dim = self.feat_preprocess.dim_out
+        else:
+            self.feat_preprocess = None
+
+    def forward_asdf(self, graph, pooling_matrix, degs, n_to_perm_length_sp_matrix, e_to_perm_length_sp_matrix):
+        graph.ndata['h'] = graph.ndata['feat']
+        for lrp_layer, mlp_layer, bn in zip(self.lrp_list, self.mlp_layers, self.bn_layers):
+            graph = lrp_layer(graph, pooling_matrix, degs, n_to_perm_length_sp_matrix, e_to_perm_length_sp_matrix)
+            graph.ndata['h'] = bn(graph.ndata['h'])
+            graph.ndata['h'] = F.relu(mlp_layer(graph.ndata['h']))
+        graph.ndata['h'] = self.final_predict(graph.ndata['h'])
+        output = dgl.sum_nodes(graph, 'h')
+        return output
+
+    def forward(self, data):
+        #if data.x is None:
+        #    data.x = torch.ones((data.num_nodes, 1), device=utils.get_device())
+
+        #x = self.pre_mp(x)
+        if self.feat_preprocess is not None:
+            if not hasattr(data, "preprocessed"):
+                data = self.feat_preprocess(data)
+                data.preprocessed = True
+        x, edge_index, batch = data.node_feature, data.edge_index, data.batch
+
+        def nx_to_graph_entry(g):
+            dgl_g = dgl.DGLGraph()
+            dgl_g.from_networkx(g, node_attrs=["node_feature"])
+            return dgl_g, lrp_helper(dgl_g), torch.tensor(0)
+        loader = DataLoader([nx_to_graph_entry(g) for g in data.G],
+            batch_size=len(data.G),
+            shuffle=False, collate_fn=collate_lrp_dgl_light)
+        batch, split_list, sp_matrices, _ = next(iter(loader))
+
+        device = torch.device("cuda")
+        mean_pooling_matrix = build_perm_pooling_sp_matrix(
+            split_list, "mean").to(device)
+
+        n_to_perm_length_sp_matrix = np_sparse_to_pt_sparse(
+            sp_matrices[0]).to(device)
+        degs = batch.in_degrees(list(range(batch.number_of_nodes()))).type(torch.FloatTensor).to(device)
+
+        h = batch.ndata["node_feature"].to(device)
+        for lrp_layer, mlp_layer, bn in zip(self.lrp_list, self.mlp_layers, self.bn_layers):
+            h = lrp_layer(h, mean_pooling_matrix, degs,
+                n_to_perm_length_sp_matrix)
+            h = bn(h)
+            #print(h.shape)
+            h = F.relu(mlp_layer(h))
+        #graph.ndata['h'] = self.final_predict(graph.ndata['h'])
+        h = self.final_predict(h)
+        batch.ndata['h'] = h
+        output = dgl.sum_nodes(batch, 'h')
+        #output = pyg_nn.global_add_pool(h, batch)
+        return output
+
+
+# LRP -> concat -> MLP graph classification baseline
+class BaselineLRP(nn.Module):
+    def __init__(self, input_dim, hidden_dim, args):
+        super(BaselineLRP, self).__init__()
+        self.emb_model = LRP(input_dim, hidden_dim, bn=True, mlp=True)
+        self.mlp = nn.Sequential(nn.Linear(2 * hidden_dim, 256), nn.ReLU(),
+            nn.Linear(256, 2))
+
+    def forward(self, emb_motif, emb_motif_mod):
+        pred = self.mlp(torch.cat((emb_motif, emb_motif_mod), dim=1))
+        pred = F.log_softmax(pred, dim=1)
+        return pred
+
+    def predict(self, pred):
+        return pred#.argmax(dim=1)
+
+    def criterion(self, pred, _, label):
+        return F.nll_loss(pred, label)
 
 # GNN -> concat -> MLP graph classification baseline
 class BaselineMLP(nn.Module):

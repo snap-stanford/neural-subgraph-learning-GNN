@@ -48,6 +48,8 @@ def build_model(args):
         model = models.BaselineMLP(1, args.hidden_dim, args)
     elif args.method_type == "ntn":
         model = models.BaselineNTN(1, args.hidden_dim, args)
+    elif args.method_type == "lrp":
+        model = models.BaselineLRP(1, args.hidden_dim, args)
     model.to(utils.get_device())
     if args.test and args.model_path:
         model.load_state_dict(torch.load(args.model_path,
@@ -56,6 +58,10 @@ def build_model(args):
 
 def make_data_source(args):
     toks = args.dataset.split("-")
+    if args.edge_induced:
+        assert len(toks) == 2 and toks[1] == "basis"
+        print("USING EDGE INDUCED")
+
     if toks[0] == "syn":
         if len(toks) == 1 or toks[1] == "balanced":
             data_source = data.OTFSynDataSource(
@@ -77,7 +83,8 @@ def make_data_source(args):
                 node_anchored=args.node_anchored, use_feats=True,
                 sampling_method="random-walks")
         elif toks[1] == "basis":
-            data_source = data.RandomBasisDataSource(toks[0])
+            data_source = data.RandomBasisDataSource(toks[0],
+                edge_induced=args.edge_induced)
         elif toks[1] == "imbalanced":
             data_source = data.DiskImbalancedDataSource(toks[0],
                 node_anchored=args.node_anchored)
@@ -115,6 +122,9 @@ def train(args, model, logger, in_queue, out_queue):
             pos_a, pos_b, neg_a, neg_b = data_source.gen_batch(batch_target,
                 batch_neg_target, batch_neg_query, True, epoch=local_epoch if
                 args.use_curriculum else None)
+            if not pos_a or not neg_a:
+                out_queue.put(("step", (-1, -1)))
+                continue
             emb_pos_a, emb_pos_b = model.emb_model(pos_a), model.emb_model(pos_b)
             emb_neg_a, emb_neg_b = model.emb_model(neg_a), model.emb_model(neg_b)
             #print(emb_pos_a.shape, emb_neg_a.shape, emb_neg_b.shape)
@@ -187,8 +197,10 @@ def train_loop(args):
         test_pts.append((pos_a, pos_b, neg_a, neg_b))
 
     workers = []
+    if "arxiv" in args.dataset:
+        data_source = None
     for i in range(args.n_workers):
-        worker = mp.Process(target=train, args=(args, model, data_source,
+        worker = mp.Process(target=train, args=(args, model, None,
             in_queue, out_queue))
         worker.start()
         workers.append(worker)
@@ -220,6 +232,7 @@ def main(force_test=False):
     parser = (argparse.ArgumentParser(description='Order embedding arguments')
         if not HYPERPARAM_SEARCH else
         HyperOptArgumentParser(strategy='grid_search'))
+
 
     utils.parse_optimizer(parser)
     parse_encoder(parser)

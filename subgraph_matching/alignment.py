@@ -65,7 +65,7 @@ def gen_alignment_matrix(model, query, target, method_type="order"):
         for u in range(len(query_embs)):
             for v in range(len(target_embs)):
                 pred = model.predict(model(target_embs[v], query_embs[u]))
-                if method_type == "mlp":
+                if method_type == "mlp" or method_type == "lrp":
                     # TODO: negate later
                     pred = -torch.exp(pred[0][1])
                 mat[u][v] = pred.item()

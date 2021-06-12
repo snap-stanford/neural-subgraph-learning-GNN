@@ -1,6 +1,7 @@
 import os
 import pickle
 import random
+import json
 
 from deepsnap.graph import Graph as DSGraph
 from deepsnap.batch import Batch
@@ -14,17 +15,32 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch_geometric.data import DataLoader
 from torch.utils.data import DataLoader as TorchDataLoader
-from torch_geometric.datasets import TUDataset, PPI, QM9
+from torch_geometric.datasets import TUDataset, PPI, QM9, WordNet18
 import torch_geometric.utils as pyg_utils
 import torch_geometric.nn as pyg_nn
 from tqdm import tqdm
 import queue
 import scipy.stats as stats
+#from ogb.nodeproppred import PygNodePropPredDataset, Evaluator
 
 from common import combined_syn
 from common import feature_preprocess
 from common import utils
 from common.random_basis_dataset import RandomBasisDataset, toGT
+
+def read_WN(path='data/WN18.gpickle'):
+    graph = nx.read_gpickle(path).to_undirected()
+    new_graph = nx.line_graph(graph)
+    print(nx.number_of_nodes(new_graph))
+    return [create_linegraph_features(graph, new_graph, 18)]
+
+def read_ppi(dataset_path='data', dataset_str='ppi'):
+    graph_json = json.load(open('{}/{}/{}-G.json'.format(dataset_path,
+        dataset_str, dataset_str)))
+    graph_nx = nx.readwrite.json_graph.node_link_graph(graph_json)
+    graphs = create_features([graph_nx], 'const')
+    print(nx.number_of_nodes(graph_nx))
+    return graphs
 
 def load_dataset(name, get_feats=False):
     """ Load real-world datasets, available in PyTorch Geometric.
@@ -48,18 +64,26 @@ def load_dataset(name, get_feats=False):
         dataset = TUDataset(root="/tmp/AIDS", name="AIDS")
     elif name == "reddit-binary":
         dataset = TUDataset(root="/tmp/REDDIT-BINARY", name="REDDIT-BINARY")
-    elif name == "imdb-binary":
+        get_feats = False  # no feats
+    elif name == "imdb-binary" or name == "imdb_binary":
         dataset = TUDataset(root="/tmp/IMDB-BINARY", name="IMDB-BINARY")
+        get_feats = False  # no feats
     elif name == "firstmm_db":
         dataset = TUDataset(root="/tmp/FIRSTMM_DB", name="FIRSTMM_DB")
     elif name == "dblp":
         dataset = TUDataset(root="/tmp/DBLP_v1", name="DBLP_v1")
     elif name == "ppi":
         dataset = PPI(root="/tmp/PPI")
+    elif name == "WN":
+        dataset = WordNet18(root="/tmp/WN18")
+        get_feats = False  # no feats
     elif name == "qm9":
         dataset = QM9(root="/tmp/QM9")
     elif name == "atlas":
         dataset = [g for g in nx.graph_atlas_g()[1:] if nx.is_connected(g)]
+    elif name == "arxiv":
+        dataset = PygNodePropPredDataset(name = "ogbn-arxiv")
+
     if task == "graph":
         train_len = int(0.8 * len(dataset))
         train, test = [], []
@@ -76,10 +100,14 @@ def load_dataset(name, get_feats=False):
                         graph.nodes[v]["feat"] = graph.nodes[v]["x"]
                 else:
                     graph = pyg_utils.to_networkx(graph).to_undirected()
+                    for v in graph:
+                        graph.nodes[v]["feat"] = np.array([1])
             if i < train_len:
                 train.append(graph)
             else:
                 test.append(graph)
+        if len(dataset) == 1:    # don't split graphs if single large graph
+            train = test
     return train, test, task
 
 class DataSource:
@@ -174,6 +202,8 @@ class OTFSynDataSource(DataSource):
                         for v in neigh.nodes:
                             neigh.nodes[v]["node_feature"] = (torch.ones(1) if
                                 anchor == v else torch.zeros(1))
+                    matcher = nx.algorithms.isomorphism.GraphMatcher(
+                        graph.G, neigh)
 
                 if (filter_negs and train and len(neigh) <= 6 and neg_target is
                     not None):
@@ -279,8 +309,10 @@ class OTFSynImbalancedDataSource(OTFSynDataSource):
 
 class RandomBasisDataSource(DataSource):
     def __init__(self, dataset_name, node_anchored=False, min_size=5,
-        max_size=29):
+        max_size=29, edge_induced=False):
         self.dataset = load_dataset(dataset_name, get_feats=True)
+        self.edge_induced = edge_induced
+        self.dataset_name = dataset_name
     
     def gen_data_loaders(self, size, batch_size, train=True,
         use_distributed_sampling=False):
@@ -291,11 +323,15 @@ class RandomBasisDataSource(DataSource):
         filter_negs=False, epoch=None):
         batch_size = a
         train_data, test_data, _ = self.dataset
+        sample = self.dataset_name in ["WN", "ppi", "reddit-binary"]
         basis_dataset = RandomBasisDataset(train_data if train else test_data,
-            batch_size, induced=True, phase="all" if train else "center")#, sample_neighborhoods=True)
+            batch_size, induced=not self.edge_induced,
+            phase="all" if train else "center", sample_neighborhoods=sample)
         if epoch is not None:
+            old_hops = basis_dataset.query_hops
             basis_dataset.set_query_hops(min(epoch, 4))
-            print("USING", basis_dataset.query_hops, "HOPS")
+            if basis_dataset.query_hops != old_hops:
+                print("USING", basis_dataset.query_hops, "HOPS")
         pos_a, pos_b, neg_a, neg_b = [], [], [], []
         pos_a_anchors, pos_b_anchors, neg_a_anchors, neg_b_anchors = [], [], [], []
         for (query_adj, query_feat, center, neighborhood_adj, neighborhood_feat,
@@ -311,10 +347,12 @@ class RandomBasisDataSource(DataSource):
                 neg_a_anchors.append(neighborhood_center)
                 neg_b_anchors.append(center)
 
-        pos_a = utils.batch_nx_graphs(pos_a, anchors=pos_a_anchors)
-        pos_b = utils.batch_nx_graphs(pos_b, anchors=pos_b_anchors)
-        neg_a = utils.batch_nx_graphs(neg_a, anchors=neg_a_anchors)
-        neg_b = utils.batch_nx_graphs(neg_b, anchors=neg_b_anchors)
+        if len(pos_a) > 0:
+            pos_a = utils.batch_nx_graphs(pos_a, anchors=pos_a_anchors)
+            pos_b = utils.batch_nx_graphs(pos_b, anchors=pos_b_anchors)
+        if len(neg_a) > 0:
+            neg_a = utils.batch_nx_graphs(neg_a, anchors=neg_a_anchors)
+            neg_b = utils.batch_nx_graphs(neg_b, anchors=neg_b_anchors)
         return pos_a, pos_b, neg_a, neg_b
 
 class DiskDataSource(DataSource):
@@ -326,10 +364,11 @@ class DiskDataSource(DataSource):
     See the load_dataset function for supported datasets.
     """
     def __init__(self, dataset_name, node_anchored=False, min_size=5,
-        max_size=29, use_feats=False, sampling_method="tree-pair"):
+        max_size=50, use_feats=False, sampling_method="tree-pair"):
         self.node_anchored = node_anchored
         self.dataset = (load_dataset(dataset_name, get_feats=use_feats)
             if dataset_name != "syn" else None)
+        #self.dataset = None
         self.min_size = min_size
         self.max_size = max_size
         self.use_feats = use_feats
@@ -340,8 +379,9 @@ class DiskDataSource(DataSource):
         loaders = [[batch_size]*(size // batch_size) for i in range(3)]
         return loaders
 
-    def gen_batch(self, a, b, c, train, max_size=15, min_size=5, seed=None,
-        filter_negs=False, sample_method="tree-pair"):
+    def gen_batch(self, a, b, c, train, max_size=50, min_size=5, seed=None,
+        filter_negs=False, sample_method="tree-pair", epoch=None):
+        
         sample_method = self.sampling_method
         batch_size = a
         train_set, test_set, task = self.dataset

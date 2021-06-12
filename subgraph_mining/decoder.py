@@ -19,6 +19,7 @@ import torch_geometric.utils as pyg_utils
 
 import torch_geometric.nn as pyg_nn
 from matplotlib import cm
+from ogb.nodeproppred import PygNodePropPredDataset, Evaluator
 
 from common import data
 from common import models
@@ -202,7 +203,7 @@ def main():
     parse_encoder(parser)
     parse_decoder(parser)
     args = parser.parse_args()
-    args.dataset = "enzymes"
+    #args.dataset = "enzymes"
 
     print("Using dataset {}".format(args.dataset))
     if args.dataset == 'enzymes':
@@ -249,6 +250,9 @@ def main():
         size = int(args.dataset.split("-")[-1])
         dataset = make_plant_dataset(size)
         task = 'graph'
+    elif args.dataset == "arxiv":
+        dataset = PygNodePropPredDataset(name = "ogbn-arxiv")
+        task = "graph"
 
     pattern_growth(dataset, task, args) 
 

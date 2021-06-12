@@ -315,8 +315,13 @@ class GreedySearchAgent(SearchAgent):
                     cand_neighs.append(cand_neigh)
                     if self.node_anchored:
                         anchors.append(neigh[0])
-                cand_embs = self.model.emb_model(utils.batch_nx_graphs(
-                    cand_neighs, anchors=anchors if self.node_anchored else None))
+                cand_embs = []
+                for i in range(0, len(cand_neighs), 128):
+                    cand_embs.append(self.model.emb_model(
+                        utils.batch_nx_graphs(cand_neighs[i:i+128],
+                        anchors=anchors[i:i+128] if self.node_anchored else
+                        None)))
+                cand_embs = torch.cat(cand_embs)
                 best_score, best_node = float("inf"), None
                 for cand_node, cand_emb in zip(frontier, cand_embs):
                     score, n_embs = 0, 0

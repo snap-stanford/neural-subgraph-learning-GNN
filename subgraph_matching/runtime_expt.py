@@ -1,7 +1,3 @@
-import sys
-sys.path.append("./baselines/ASAPXL/")
-#from ASAPXL import ASAPXL_interface
-
 from subgraph_matching import alignment
 import argparse
 from itertools import permutations
@@ -41,33 +37,26 @@ from scipy.optimize import linear_sum_assignment
 
 from baselines.fastPFP.fastPFP import fastPFP_faster, greedy_assignment, loss
 
-import subprocess
+import sys
+sys.path.append("./baselines/ASAP/")
+from ASAP import ASAP_main_G
 
-def subtree_isom(t_tree, q_tree, t_u, q_u, depth=3, use_attrs=True):
-    if len(q_tree) <= 1 or len(t_tree) <= 1 or depth == 0:
-        if not use_attrs: return 1
-        if depth == 0:
-            return 1 if q_tree.nodes[q_u]["x"] == t_tree.nodes[t_u]["x"] else 0
-        else:
-            x, g, gx = ((q_tree.nodes[q_u]["x"], t_tree, t_u)
-                if len(q_tree) <= 1 else (t_tree.nodes[t_u]["x"], q_tree, q_u))
-            nodes = list(nx.single_source_shortest_path(g, gx,
-                cutoff=depth).keys())
-            for u in nodes:
-                if g.nodes[u]["x"] == x:
-                    return 1
-            return 0
-    else:
-        t_succs = list(t_tree.successors(t_u))
-        q_succs = list(q_tree.successors(q_u))
-        mat = np.zeros((len(t_succs), len(q_succs)))
-        for u in range(len(t_succs)):
-            for v in range(len(q_succs)):
-                mat[u, v] = subtree_isom(t_tree, q_tree, t_succs[u],
-                    q_succs[v], depth=depth-1, use_attrs=use_attrs)
-        row_ind, col_ind = linear_sum_assignment(mat, maximize=True)
-        score = mat[row_ind, col_ind].sum()
-        return 1 if score == len(q_succs) else 0
+import subprocess
+from subprocess import STDOUT, check_output
+
+import signal
+
+class timeout:
+    def __init__(self, seconds=1, error_message='Timeout'):
+        self.seconds = seconds
+        self.error_message = error_message
+    def handle_timeout(self, signum, frame):
+        raise TimeoutError(self.error_message)
+    def __enter__(self):
+        signal.signal(signal.SIGALRM, self.handle_timeout)
+        signal.alarm(self.seconds)
+    def __exit__(self, type, value, traceback):
+        signal.alarm(0)
 
 def make_feat_mat(graph):
     m = [graph.nodes[v]["feat"] if "feat" in graph.nodes[v] else [1]
@@ -161,31 +150,80 @@ def main():
 
     print("USE WHOLE TARGETS:", args.use_whole_targets)
     assert args.use_whole_targets == (args.dataset in ["cox2", "enzymes", "msrc"])
-    if args.dataset in ["WN", "imdb-binary", "imdb_binary"]:
+    #data_source = data.PerturbTargetDataSource(args.dataset,
+    #    node_anchored=False, use_whole_targets=args.use_whole_targets,
+    #    use_feats=True,
+    #    target_larger=False)
+    if args.dataset in ["imdb-binary", "WN"]:  # too slow for random basis
         data_source = data.DiskDataSource(args.dataset, node_anchored=False)
     else:
-        data_source = data.PerturbTargetDataSource(args.dataset,
-            node_anchored=False, use_whole_targets=args.use_whole_targets,
-            use_feats=True,
-            target_larger=False)
+        data_source = data.RandomBasisDataSource(args.dataset,
+            edge_induced=args.edge_induced)
         #data_source = data.DiskImbalancedDataSource(args.dataset,
         #    node_anchored=False, use_whole_targets=True, use_feats=True,
         #    target_larger=True)
     #data_source = data.RandomBasisDataSource(args.dataset,
     #    node_anchored=True)
-    loaders = data_source.gen_data_loaders(64*100, 64, train=False)
+    n_samp = 64*100
+    if args.method_type == "lrp":
+        n_samp = 64*100
+    if args.dataset in ["imdb-binary", "WN"]:
+        n_samp = 3000
+
+    loaders = data_source.gen_data_loaders(n_samp, 64, train=False)
     record_data = []
     labels, scores = [], []
     preds = []
+    all_times = []
     start_time = time.time()
+    if args.baseline:
+        baseline_filter, baseline_order, baseline_engine = args.baseline.split(
+            "-")
     for batch_target, batch_neg_target, batch_neg_query in tqdm(zip(*loaders)):
         pos_a, pos_b, neg_a, neg_b = data_source.gen_batch(batch_target,
             batch_neg_target, batch_neg_query, False)
         for ls_a, ls_b, label in [(pos_a, pos_b, 1), (neg_a, neg_b, 0)]:
             if not ls_a: continue
             for target, query in zip(ls_a.G, ls_b.G):
+                # make files
+                target_fn = "/tmp/target-{}-{}".format(args.dataset,
+                    args.baseline)
+                query_fn = "/tmp/query-{}-{}".format(args.dataset,
+                    args.baseline)
+                with open(target_fn, "w") as f:
+                    f.write("t {} {}\n".format(len(target), len(target.edges)))
+                    for v in target.nodes:
+                        f.write("v {} {} {}\n".format(v, 0, target.degree[v]))
+                    for u, v in target.edges:
+                        f.write("e {} {}\n".format(u, v))
+                with open(query_fn, "w") as f:
+                    f.write("t {} {}\n".format(len(query), len(query.edges)))
+                    for v in query.nodes:
+                        f.write("v {} {} {}\n".format(v, 0, query.degree[v]))
+                    for u, v in query.edges:
+                        f.write("e {} {}\n".format(u, v))
                 start_time_query = time.time()
-                if args.baseline == "":
+
+                if args.baseline:
+                    if baseline_engine == "VF2":
+                        try:
+                            with timeout(seconds=60*10):
+                                matcher = nx.algorithms.isomorphism.GraphMatcher(target, query)
+                                matcher.subgraph_is_isomorphic()
+                        except:
+                            print("TIMEOUT")
+                    else:
+                        try:
+                            check_output(["./baselines/SubgraphMatching/build/matching/SubgraphMatching.out",
+                                "-d", target_fn,
+                                "-q", query_fn,
+                                "-filter", baseline_filter,
+                                "-order", baseline_order,
+                                "-engine", baseline_engine,
+                                "-num", "1"], stderr=STDOUT, timeout=60*5)
+                        except:
+                            print("EXCEPTION")
+                else:
                     if args.method_type == "lrp":
                         mat = 0
                         batch = utils.batch_nx_graphs([query])
@@ -197,102 +235,26 @@ def main():
                     else:
                         mat = alignment.gen_alignment_matrix(model, query, target,
                             method_type=args.method_type)
-                        if args.agg_func == "mean":
-                            score = -np.mean(mat)
-                        elif args.agg_func == "min":
-                            score = -np.min(mat)
-                        elif args.agg_func == "hungarian":
-                            row_ind, col_ind = linear_sum_assignment(mat)
-                            score = -mat[row_ind, col_ind].sum()
-                        elif args.agg_func == "hungarian-mean":
-                            row_ind, col_ind = linear_sum_assignment(mat)
-                            score = -mat[row_ind, col_ind].mean()
-
-                    scores.append(score)
-                elif args.baseline == "pseudo":
-                    mat = np.zeros((len(query), len(target)))
-                    for u in query.nodes:
-                        for v in target.nodes:
-                            q_tree = nx.bfs_tree(query, u)
-                            t_tree = nx.bfs_tree(target, v)
-                            if args.dataset not in ["syn", "WN",
-                                "imdb-binary", "imdb_binary"]:
-                                for x in q_tree.nodes:
-                                    q_tree.nodes[x]["x"] = query.nodes[x]["x"]
-                                for x in t_tree.nodes:
-                                    t_tree.nodes[x]["x"] = target.nodes[x]["x"]
-                            mat[u][v] = int(subtree_isom(t_tree, q_tree, v, u,
-                                depth=2, use_attrs=args.dataset not in ["syn",
-                                    "WN", "imdb-binary", "imdb_binary"]))
-                    row_ind, col_ind = linear_sum_assignment(mat, maximize=True)
-                    score = mat[row_ind, col_ind].sum()
-                    scores.append(score)
-                elif args.baseline == "pfp":
-                    A = nx.to_numpy_array(target)
-                    B = nx.to_numpy_array(query)
-                    C = make_feat_mat(target)
-                    D = make_feat_mat(query)
-                    X = fastPFP_faster(A, B, C=C, D=D, lam=1.0, alpha=0.5,
-                        threshold1=1.0e-4, threshold2=1.0e-4, verbose=False)
-                    P = greedy_assignment(X)
-                    #P = (X == X.max(1)[:, None])
-                    #score = loss(A, B, X, C=C, D=D, lam=1.0) / (len(target) *
-                    #    len(query))
-                    #print(score)
-                    #scores.append(-score)
-                    mat = P
-                    #mat = greedy_assignment(X)
-                    row_ind, col_ind = np.nonzero(mat)
-                    adj_t = nx.to_numpy_array(target.subgraph(row_ind))
-                    feat_t = make_feat_mat(target.subgraph(row_ind))
-                    score = np.mean(adj_t == B) + np.mean(feat_t @ D.T)
-                    scores.append(score)
-                elif args.baseline == "isorank":
-                    mat, score = run_isorank(target, query, args.dataset)
-                    scores.append(score)
-                elif args.baseline == "asap":
-                    mat = [0]
-                    try:
-                        score = ASAPXL_interface(target, query, 100000)
-                        score = score[-1]
-                        print(score)
-                    except AssertionError:
-                        print("ASSERT")
-                        score = 0
-                    scores.append(score)
                 end_time_query = time.time()
+                print(end_time_query - start_time_query)
+                all_times.append(end_time_query - start_time_query)
+                record_data.append((end_time_query - start_time_query,
+                    len(query), len(target)))
 
                 print(len(target), len(query))
-                assert len(target) >= len(query)
+                #assert len(target) >= len(query)
                 #center = nx.center(query)[0]
                 #scores.append(-np.mean(mat[center]))
                 #row_ind, col_ind = linear_sum_assignment(mat)
                 #score = -mat[row_ind, col_ind].sum()
                 #scores.append(score)
-                preds.append(1 if np.mean(mat) < 1 else 0)
-                labels.append(label)
-                record_data.append((target, query, score, mat, label,
-                    end_time_query - start_time_query))
-
-                try:
-                    #print(scores)
-                    auroc = roc_auc_score(labels, scores)
-                    ap = average_precision_score(labels, scores)
-                    acc = np.mean(np.equal(preds, labels))
-                    print(args.dataset, acc, auroc, ap)
-                except ValueError:
-                    pass
     end_time = time.time()
     print("RUNTIME:", end_time - start_time)
-    auroc = roc_auc_score(labels, scores)
-    ap = average_precision_score(labels, scores)
-    acc = np.mean(np.equal(preds, labels))
-    print(args.dataset, acc, auroc, ap)
-    with open("data/alignment-{}-{}-{}.p".format(args.dataset, args.method_type if
-        args.baseline == "" else args.baseline, args.agg_func), "wb") as f:
-        pickle.dump(record_data, f)
-    print("AGG FUNC:", args.agg_func)
 
+    with open("data/runtime-expt-{}-{}.p".format(
+        args.dataset, args.method_type if
+        args.baseline == "" else args.baseline), "wb") as f:
+        pickle.dump(record_data, f)
     #np.save("results/alignment.npy", mat)
     #print("Saved alignment matrix in results/alignment.npy")
 
@@ -303,4 +265,5 @@ def main():
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
     main()
+
 

@@ -39,6 +39,8 @@ def parse_encoder(parser, arg_str=None):
                         help='whether to use node anchoring in training')
     enc_parser.add_argument('--use_curriculum', action="store_true",
                         help='whether to use curriculum in training')
+    enc_parser.add_argument('--edge_induced', action="store_true",
+                        help='use edge induced training (only for random basis)')
     enc_parser.add_argument('--test', action="store_true")
     enc_parser.add_argument('--n_workers', type=int)
     enc_parser.add_argument('--tag', type=str,
@@ -65,7 +67,7 @@ def parse_encoder(parser, arg_str=None):
                         model_path="ckpt/model.pt",
                         tag='',
                         val_size=4096,
-                        node_anchored=True)
+                        node_anchored=False)
 
     #return enc_parser.parse_args(arg_str)
 

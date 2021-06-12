@@ -115,7 +115,8 @@ def gen_baseline_queries_rand_esu(queries, targets, node_anchored=False):
     return out
 
 def enumerate_subgraph(G, k=3, progress_bar=False, node_anchored=False):
-    ps = np.arange(1.0, 0.0, -1.0/(k+1)) ** 1.5
+    #ps = np.arange(1.0, 0.0, -1.0/(k+1)) ** 10
+    ps = np.arange(0.001, 0.0, -0.001/(k+1)) ** 10
     #ps = [1.0]*(k+1)
     motif_counts = defaultdict(list)
     for node in tqdm(G.nodes) if progress_bar else G.nodes:

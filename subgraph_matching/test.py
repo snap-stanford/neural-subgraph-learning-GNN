@@ -58,7 +58,7 @@ def validation(args, model, test_pts, logger, batch_n, epoch, verbose=False):
                     print(pred[:,i])
                 pred = torch.min(pred, dim=0)[0]
                 raw_pred *= -1
-            elif args.method_type in ["mlp", "ntn"]:
+            elif args.method_type in ["mlp", "ntn", "lrp"]:
                 raw_pred = raw_pred[:,1]
                 pred = pred.argmax(dim=-1)
         all_raw_preds.append(raw_pred)

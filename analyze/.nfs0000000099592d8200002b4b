@@ -63,56 +63,47 @@ def arg_parse():
     return parser.parse_args()
 
 tgt_fn_cache = {}
-def subgraph_isom(args):
-    target, queries, is_anchored, target_anchor = args
+def subgraph_isom(target, query, is_anchored=True, target_anchor=None):
+    assert is_anchored
     #print("making target")
     if target_anchor not in tgt_fn_cache:
         tgt_fn = "/tmp/target" + str(random.random())
         with open(tgt_fn, "w") as f:
-            #graph = nx.convert_node_labels_to_integers(target)
-            graph = target
+            graph = nx.convert_node_labels_to_integers(target)
             f.write("t {} {}\n".format(1, len(graph)))
             for j in range(len(graph)):
-                f.write("v {} {}\n".format(j, 1 if j == target_anchor and
-                    is_anchored else 0))
+                f.write("v {} {}\n".format(j, graph.nodes[j]["anchor"]))
             for u, v in sorted(graph.edges):
                 f.write("e {} {} {}\n".format(u, v, 0))
-        #tgt_fn_cache[target_anchor] = tgt_fn
+        tgt_fn_cache[target_anchor] = tgt_fn
     else:
         tgt_fn = tgt_fn_cache[target_anchor]
 
     #print("making query")
     qry_fn = "/tmp/query" + str(random.random())
-    #print(len(queries), "queries")
-    #print(qry_fn)
     with open(qry_fn, "w") as f:
-        for i, query in enumerate(queries):
-            graph = nx.convert_node_labels_to_integers(query)
-            f.write("t {} {} {}\n".format(i, len(query), len(query.edges)*2))
-            for j in range(len(graph)):
-                f.write("{} {} {} {}\n".format(j, graph.nodes[j]["anchor"] if
-                    is_anchored else 0,
-                    graph.degree(j), " ".join([str(x) for x in
-                        sorted(graph.neighbors(j))])))
+        graph = nx.convert_node_labels_to_integers(query)
+        f.write("t {} {}\n".format(0, len(query)))
+        for j in range(len(graph)):
+            f.write("v {} {} {} {}\n".format(j, graph.nodes[j]["anchor"],
+                graph.degree(j), " ".join([str(x) for x in
+                    sorted(graph.neighbors(j))])))
+        for u, v in sorted(graph.edges):
+            f.write("e {} {} {}\n".format(u, v, 0))
 
     #print("running")
     p = subprocess.Popen(["DAF/daf_twitter", "-d", tgt_fn, "-q", qry_fn, "-n",
-        str(len(queries)), "-m", "1"], stdout=subprocess.PIPE)
-    counts = {}
+        "1", "-m", "1"], stdout=subprocess.PIPE)
     for i, line in enumerate(p.stdout.readlines()):
         toks = line.decode("utf-8").strip().split(" ")
-        #print(line)
-        if i >= 4:
-            stat = toks[-1]
-            if stat == "ms":
-                break
-            else:
-                counts[i - 4] = 1 if int(toks[-2]) > 0 else 0
+        if i == 4:
+            is_isom = int(toks[-1])
+            break
 
     #os.remove(tgt_fn)
-    #os.remove(qry_fn)
+    os.remove(qry_fn)
     #print("done")
-    return counts
+    return is_isom
 
 def gen_baseline_queries(queries, targets, method="mfinder",
     node_anchored=False):
@@ -165,12 +156,11 @@ def gen_baseline_queries(queries, targets, method="mfinder",
                     found = True
     return neighs
 
-cleaned_target_cache = None
 def count_graphlets_helper(inp):
-    i, queries, target, method, node_anchored, anchor_or_none = inp
+    i, query, target, method, node_anchored, anchor_or_none = inp
     # NOTE: removing self loops!!
-    queries = queries.copy()
-    queries = [q.remove_edges_from(nx.selfloop_edges(q)) for q in queries]
+    query = query.copy()
+    query.remove_edges_from(nx.selfloop_edges(query))
     #if node_anchored and method == "bin":
     #    n_chances_left = sum([len(g) for g in targets])
     if method == "freq":
@@ -179,13 +169,8 @@ def count_graphlets_helper(inp):
 
     #print(n_symmetries, "symmetries")
     n, n_bin = 0, 0
-    global cleaned_target_cache
-    if cleaned_target_cache is None:
-        cleaned_target_cache = target.copy()
-        cleaned_target_cache.remove_edges_from(
-            nx.selfloop_edges(cleaned_target_cache))
-    else:
-        target = cleaned_target_cache#.copy()
+    target = target.copy()
+    target.remove_edges_from(nx.selfloop_edges(target))
     #print(i, j, len(target), n / n_symmetries)
     #matcher = nx.isomorphism.ISMAGS(target, query)
     if method == "bin":
@@ -193,11 +178,12 @@ def count_graphlets_helper(inp):
             for anchor in (target.nodes if anchor_or_none is None else
                 [anchor_or_none]):
                 #if random.random() > 0.1: continue
-                #nx.set_node_attributes(target, 0, name="anchor")
-                #target.nodes[anchor]["anchor"] = 1
+                nx.set_node_attributes(target, 0, name="anchor")
+                target.nodes[anchor]["anchor"] = 1
 
-                n += subgraph_isom(target, queries, is_anchored=True,
-                    target_anchor=anchor)
+                if subgraph_isom(target, query, is_anchored=True,
+                    target_anchor=anchor):
+                    n += 1
                 # TODO: old
                 #matcher = iso.GraphMatcher(target, query,
                 #    node_match=iso.categorical_node_match(["anchor"], [0]))
@@ -223,7 +209,7 @@ def count_graphlets_helper(inp):
     #print(i, count)
     return i, count
 
-def count_graphlets_mp(queries, targets, n_workers=1, method="bin",
+def count_graphlets(queries, targets, n_workers=1, method="bin",
     node_anchored=False, min_count=0):
     print(len(queries), len(targets))
     #idxs, counts = zip(*[count_graphlets_helper((i, q, targets, include_bin))
@@ -240,39 +226,25 @@ def count_graphlets_mp(queries, targets, n_workers=1, method="bin",
         #        if len(targets) < 10 else [None])]
         # TODO: tmp for arxiv!!!!!!!!!!!!!!!!!!!!!
         anchors = random.sample(targets[0].nodes, 10000)
-        #inp = [(i, query, target, method, node_anchored, anchor) for i, query
-        #    in enumerate(queries) for target in targets for anchor in anchors]
-        inp = [(i, queries, target, method, node_anchored, anchor) for i,
-            target in enumerate(targets) for anchor in anchors]
+        inp = [(i, query, target, method, node_anchored, anchor) for i, query
+            in enumerate(queries) for target in targets for anchor in anchors]
     else:
         inp = [(i, query, target, method, node_anchored, None) for i, query
             in enumerate(queries) for target in targets]
     print(len(inp))
     n_done = 0
-    for i, n in pool.imap_unordered(count_graphlets_helper, inp):
+    #for i, n in pool.imap_unordered(count_graphlets_helper, inp):
+    #    print(n_done, len(n_matches), i, n, "                ", end="\r")
+    #    n_matches[i] += n
+    #    n_done += 1
+    for i in range(len(inp)):
+        n = count_graphlets_helper(inp[i])
         print(n_done, len(n_matches), i, n, "                ", end="\r")
         n_matches[i] += n
         n_done += 1
     print()
     n_matches = [n_matches[i] for i in range(len(n_matches))]
     return n_matches
-
-def count_graphlets(queries, targets, n_workers=1, method="bin",
-    node_anchored=False, min_count=0):
-    isom = {k: 0 for k in range(len(queries))}
-    pool = Pool(processes=n_workers)
-
-    args = []
-    for anchor in random.sample(range(len(targets[0])), 5000):
-        args.append((targets[0], queries, True, anchor))
-
-    n_done = 0
-    for d in pool.imap_unordered(subgraph_isom, args):
-        for k, v in d.items():
-            isom[k] += v
-        print(n_done, [isom[x] for x in range(len(queries))])
-        n_done += 1
-    return isom
 
 def count_exact(queries, targets, args):
     print("WARNING: orca only works for node anchored")
@@ -371,7 +343,6 @@ if __name__ == "__main__":
         graph = dataset[i]
         if not type(graph) == nx.Graph:
             graph = pyg_utils.to_networkx(dataset[i]).to_undirected()
-            graph = nx.convert_node_labels_to_integers(graph)
         targets.append(graph)
 
     if args.dataset != "analyze":

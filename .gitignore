@@ -13,3 +13,4 @@ orca/
 core
 deepsnap-experimental/
 ckpt/
+*.sh
