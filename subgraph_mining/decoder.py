@@ -234,12 +234,12 @@ def readGraphs(path):
     graphs = []
     for graph in rawGraphs:
         numVertices = len(graph[0])
-        g = np.zeros((numVertices,numVertices),dtype=int)
-        for v,l in graph[0].items():
-            g[v,v] = l
+        g = nx.Graph()
+        # for v,l in graph[0].items():
+        #     g.add_node(v)
         for e,l in graph[1].items():
-            g[e[0],e[1]] = l
-            g[e[1],e[0]] = l
+            g.add_edge(e[0], e[1])
+
         graphs.append(g)
     return graphs
 
@@ -275,10 +275,7 @@ def main():
         dataset = TUDataset(root='/tmp/coil', name='COIL-DEL')
         task = 'graph'
     elif args.dataset.startswith('synthetic_'):
-        graphs = readGraphs("data/{}.lg".format(args.dataset))
-        dataset = []
-        for graph in graphs:
-            dataset.append(nx.from_numpy_array(graph))
+        dataset = readGraphs("data/{}.lg".format(args.dataset))
 
         task = 'graph'
     elif args.dataset.startswith('roadnet-'):
