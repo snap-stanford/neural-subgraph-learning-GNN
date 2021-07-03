@@ -199,6 +199,50 @@ def pattern_growth(dataset, task, args):
     with open(args.out_path, "wb") as f:
         pickle.dump((out_graphs, graph_idx_list), f)
 
+def read_graph_corpus(path):
+    graphs = []
+    # label_center = open(label_center_path, 'r', encoding='utf-8')
+    label_centers = []
+    with open(path, 'r', encoding='utf-8') as file:
+        nodes = {}
+        edges = {}
+        for line in file:
+            if 't' in line:
+                if len(nodes) > 0:
+                    graphs.append((nodes, edges))
+                    # if len(graphs) > 9:
+                        # break
+                nodes = {}
+                edges = {}
+            if 'v' in line:
+                data_line = line.split()
+                node_id = int(data_line[1])
+                node_label = int(data_line[2])
+                nodes[node_id] = node_label
+            if 'e' in line:
+                data_line = line.split()
+                source_id = int(data_line[1])
+                target_id = int(data_line[2])
+                label = int(data_line[3])
+                edges[(source_id, target_id)] = label
+        if len(nodes) > 0:
+            graphs.append((nodes,edges))
+    return graphs#[10:]
+
+def readGraphs(path):
+    rawGraphs = read_graph_corpus(path)
+    graphs = []
+    for graph in rawGraphs:
+        numVertices = len(graph[0])
+        g = np.zeros((numVertices,numVertices),dtype=int)
+        for v,l in graph[0].items():
+            g[v,v] = l
+        for e,l in graph[1].items():
+            g[e[0],e[1]] = l
+            g[e[1],e[0]] = l
+        graphs.append(g)
+    return graphs
+
 def main():
     if not os.path.exists("plots/cluster"):
         os.makedirs("plots/cluster")
@@ -229,6 +273,13 @@ def main():
         task = 'graph-truncate'
     elif args.dataset == 'coil':
         dataset = TUDataset(root='/tmp/coil', name='COIL-DEL')
+        task = 'graph'
+    elif args.dataset.startswith('synthetic_'):
+        graphs = readGraphs("data/{}.lg".format(args.dataset))
+        dataset = []
+        for graph in graphs:
+            dataset.append(nx.from_numpy_array(graph))
+
         task = 'graph'
     elif args.dataset.startswith('roadnet-'):
         graph = nx.Graph()
