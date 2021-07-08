@@ -58,7 +58,7 @@ def wl_hash(g, dim=64, node_anchored=False):
                 vecs[v] = 1
                 break
     for i in range(len(g)):
-        newvecs = np.zeros((len(g), dim), dtype=np.int)
+        newvecs = np.zeros((len(g), dim), dtype=np.int64)
         for n in g.nodes:
             newvecs[n] = vec_hash(np.sum(vecs[list(g.neighbors(n)) + [n]],
                 axis=0))
@@ -226,7 +226,7 @@ def batch_nx_graphs(graphs, anchors=None):
     #loader = DataLoader(motifs_batch, batch_size=len(motifs_batch))
     #for b in loader: batch = b
     augmenter = feature_preprocess.FeatureAugment()
-    
+
     if anchors is not None:
         for anchor, g in zip(anchors, graphs):
             for v in g.nodes:
