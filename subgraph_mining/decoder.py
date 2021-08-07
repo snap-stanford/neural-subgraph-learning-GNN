@@ -307,6 +307,9 @@ def main():
         size = int(args.dataset.split("-")[-1])
         dataset = make_plant_dataset(size)
         task = 'graph'
+    else:
+        dataset = readGraphs("data/{}.lg".format(args.dataset))
+        task = 'graph'
 
     pattern_growth(dataset, task, args)
 
