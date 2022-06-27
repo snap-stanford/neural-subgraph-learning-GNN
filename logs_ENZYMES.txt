@@ -1,0 +1,508 @@
+Using dataset enzymes
+600 graphs
+search strategy: greedy
+Rank Method: counts
+seeds come from 442 distinct graphs
+seeds come from 441 distinct graphs
+seeds come from 441 distinct graphs
+seeds come from 441 distinct graphs
+seeds come from 441 distinct graphs
+seeds come from 441 distinct graphs
+seeds come from 441 distinct graphs
+seeds come from 440 distinct graphs
+seeds come from 439 distinct graphs
+seeds come from 436 distinct graphs
+seeds come from 431 distinct graphs
+seeds come from 427 distinct graphs
+seeds come from 420 distinct graphs
+seeds come from 419 distinct graphs
+seeds come from 410 distinct graphs
+seeds come from 405 distinct graphs
+seeds come from 402 distinct graphs
+seeds come from 398 distinct graphs
+seeds come from 388 distinct graphs
+seeds come from 382 distinct graphs
+Saving analysis info in results/analyze.p
+Saving analysis plot in results/analyze.png
+1706.376210451126 TOTAL TIME
+28 mins 26 secs
+Saving plots/cluster/5-0.png
+Graph idx: 
+{0, 1, 2, 515, 5, 7, 8, 519, 523, 524, 525, 526, 527, 15, 17, 19, 531, 21, 533, 534, 24, 537, 22, 539, 25, 541, 26, 543, 538, 545, 28, 540, 548, 542, 550, 38, 40, 41, 42, 43, 44, 552, 46, 559, 560, 558, 562, 563, 48, 53, 570, 571, 572, 61, 59, 63, 576, 65, 67, 68, 582, 71, 72, 73, 584, 593, 594, 595, 596, 597, 84, 599, 88, 89, 90, 83, 94, 95, 96, 97, 101, 102, 103, 104, 107, 110, 111, 112, 117, 118, 119, 121, 122, 125, 127, 535, 133, 27, 137, 536, 142, 147, 148, 149, 157, 160, 166, 167, 168, 169, 170, 171, 173, 174, 175, 178, 182, 183, 184, 185, 186, 189, 190, 192, 194, 195, 197, 198, 199, 202, 203, 208, 209, 211, 212, 551, 214, 217, 218, 220, 221, 222, 225, 227, 229, 233, 237, 240, 241, 248, 249, 251, 252, 256, 258, 259, 260, 265, 266, 268, 269, 271, 272, 273, 276, 278, 281, 283, 284, 285, 288, 289, 290, 292, 294, 295, 296, 299, 300, 302, 304, 305, 306, 307, 308, 311, 314, 315, 316, 319, 323, 324, 326, 330, 333, 334, 336, 339, 340, 341, 344, 345, 346, 347, 348, 349, 353, 354, 358, 359, 360, 362, 364, 365, 366, 368, 369, 371, 377, 379, 381, 387, 389, 390, 391, 394, 395, 398, 399, 400, 403, 406, 407, 408, 409, 410, 413, 414, 416, 417, 419, 421, 423, 428, 429, 432, 437, 438, 440, 442, 443, 444, 448, 449, 453, 459, 460, 463, 464, 465, 466, 470, 471, 478, 481, 482, 484, 486, 488, 490, 492, 495, 496, 498, 500, 501, 502, 503, 509, 511}
+Saving plots/cluster/5-1.png
+Graph idx: 
+{129, 257, 515, 389, 133, 390, 522, 12, 268, 142, 271, 269, 16, 206, 528, 148, 20, 406, 151, 23, 26, 539, 413, 30, 287, 288, 29, 543, 549, 166, 551, 299, 172, 173, 49, 51, 565, 572, 317, 61, 192, 65, 578, 67, 579, 197, 70, 583, 581, 452, 586, 203, 460, 66, 334, 335, 591, 590, 207, 339, 464, 462, 214, 342, 336, 89, 345, 347, 93, 96, 227, 485, 71, 232, 106, 235, 199, 237, 496, 497, 241, 244, 506, 380}
+Saving plots/cluster/5-2.png
+Graph idx: 
+{512, 133, 391, 522, 396, 526, 271, 19, 532, 148, 406, 149, 21, 281, 282, 539, 537, 405, 414, 538, 417, 546, 291, 36, 290, 421, 423, 296, 419, 299, 172, 429, 557, 434, 309, 438, 183, 185, 58, 193, 577, 451, 194, 196, 582, 326, 198, 454, 205, 461, 590, 592, 464, 210, 594, 596, 597, 347, 348, 220, 478, 225, 354, 484, 356, 101, 485, 232, 104, 106, 107, 364, 378, 239, 499, 116, 117, 246, 503, 122, 125, 383}
+Saving plots/cluster/5-3.png
+Graph idx: 
+{512, 515, 133, 389, 6, 517, 9, 266, 11, 523, 525, 14, 271, 17, 402, 276, 277, 278, 24, 539, 28, 286, 290, 418, 35, 552, 41, 42, 299, 169, 297, 558, 48, 305, 177, 311, 441, 315, 318, 194, 197, 70, 72, 202, 460, 207, 208, 209, 210, 83, 344, 218, 223, 225, 228, 101, 229, 490, 363, 234, 239, 497, 115, 243, 501, 502, 375, 507}
+Saving plots/cluster/5-4.png
+Graph idx: 
+{514, 515, 258, 389, 265, 141, 273, 274, 277, 151, 25, 153, 28, 286, 545, 35, 549, 165, 552, 296, 429, 559, 561, 178, 564, 56, 318, 323, 202, 77, 78, 80, 596, 469, 90, 92, 504, 108, 492, 366, 378, 370, 372, 245, 118, 500, 117, 122, 124, 126, 127}
+Saving plots/cluster/5-5.png
+Graph idx: 
+{7, 396, 526, 399, 15, 273, 407, 540, 413, 36, 294, 168, 296, 170, 43, 300, 173, 50, 308, 577, 450, 579, 451, 456, 599, 344, 221, 349, 225, 353, 102, 363, 370, 246, 503, 248, 381}
+Saving plots/cluster/5-6.png
+Graph idx: 
+{265, 140, 13, 411, 31, 32, 417, 545, 165, 554, 559, 561, 69, 71, 327, 78, 334, 337, 82, 340, 476, 92, 354, 492, 110, 252, 251, 380}
+Saving plots/cluster/5-7.png
+Graph idx: 
+{288, 289, 68, 197, 549, 260, 520, 264, 426, 46, 243, 468, 21, 118, 372, 24, 343, 542, 191}
+Saving plots/cluster/5-8.png
+Graph idx: 
+{320, 293, 6, 574, 45, 176, 401, 274, 563, 402, 182, 536, 281, 316, 317, 30, 287}
+Saving plots/cluster/5-9.png
+Graph idx: 
+{195, 516, 293, 169, 174, 146, 252, 500, 502, 535, 347, 348, 414}
+Saving plots/cluster/6-0.png
+Graph idx: 
+{0, 1, 2, 515, 5, 7, 8, 519, 523, 524, 525, 527, 15, 21, 534, 22, 24, 533, 26, 539, 25, 541, 28, 535, 540, 545, 27, 548, 550, 551, 40, 41, 552, 43, 44, 46, 560, 48, 562, 563, 53, 570, 571, 572, 61, 65, 67, 582, 71, 72, 73, 594, 83, 596, 597, 84, 599, 88, 89, 90, 94, 95, 96, 101, 102, 103, 104, 107, 110, 111, 117, 119, 121, 122, 125, 137, 536, 142, 147, 148, 149, 157, 166, 167, 168, 169, 170, 171, 173, 174, 175, 178, 182, 183, 184, 185, 186, 189, 190, 192, 194, 195, 197, 198, 199, 202, 203, 208, 217, 218, 221, 222, 225, 227, 229, 233, 240, 241, 248, 249, 258, 265, 269, 271, 272, 273, 278, 283, 284, 288, 289, 292, 294, 295, 296, 299, 300, 302, 304, 305, 306, 307, 308, 311, 314, 315, 316, 319, 323, 324, 326, 333, 336, 339, 340, 341, 344, 345, 346, 347, 348, 354, 358, 360, 362, 364, 365, 369, 371, 377, 379, 381, 387, 389, 394, 395, 398, 400, 406, 407, 408, 409, 413, 416, 417, 419, 421, 432, 438, 440, 442, 443, 444, 449, 453, 459, 464, 465, 466, 478, 482, 490, 492, 496, 498, 500, 502, 503, 509, 511}
+Saving plots/cluster/6-1.png
+Graph idx: 
+{391, 522, 271, 532, 149, 406, 22, 281, 282, 539, 538, 414, 417, 290, 546, 36, 421, 550, 423, 291, 299, 429, 434, 437, 182, 183, 185, 58, 442, 577, 451, 196, 198, 205, 461, 590, 470, 348, 220, 478, 484, 101, 485, 232, 104, 107, 364, 499, 117, 122}
+Saving plots/cluster/6-2.png
+Graph idx: 
+{256, 259, 260, 519, 266, 268, 526, 527, 17, 21, 534, 24, 283, 28, 285, 413, 543, 416, 541, 542, 548, 421, 166, 300, 560, 308, 59, 61, 63, 576, 67, 68, 199, 584, 460, 334, 209, 339, 340, 471, 346, 349, 353, 227, 484, 492, 237, 112, 501, 118, 251, 509}
+Saving plots/cluster/6-3.png
+Graph idx: 
+{512, 515, 133, 389, 6, 9, 266, 11, 523, 525, 14, 17, 402, 276, 277, 278, 24, 539, 28, 286, 35, 552, 169, 42, 297, 558, 48, 305, 177, 441, 315, 318, 194, 70, 72, 202, 460, 208, 210, 83, 344, 218, 223, 225, 228, 229, 490, 363, 239, 497, 115, 243, 502}
+Saving plots/cluster/6-4.png
+Graph idx: 
+{133, 7, 399, 15, 273, 407, 540, 413, 36, 294, 168, 296, 170, 43, 428, 173, 559, 50, 307, 308, 438, 571, 579, 451, 596, 214, 221, 349, 225, 481, 353, 363, 366, 370, 502, 503, 246, 125, 127}
+Saving plots/cluster/6-5.png
+Graph idx: 
+{129, 515, 133, 268, 269, 16, 148, 410, 413, 30, 543, 288, 285, 173, 565, 66, 67, 197, 70, 203, 462, 335, 591, 207, 464, 465, 214, 89, 345, 347, 227, 485, 486, 235, 237, 496, 497, 241, 380}
+Saving plots/cluster/6-6.png
+Graph idx: 
+{390, 265, 16, 148, 20, 409, 26, 25, 29, 287, 160, 549, 38, 551, 559, 438, 317, 61, 448, 579, 199, 330, 586, 460, 206, 463, 211, 342, 89, 348, 232, 488, 244, 506}
+Saving plots/cluster/6-7.png
+Graph idx: 
+{391, 531, 276, 533, 403, 281, 537, 410, 538, 413, 414, 421, 168, 296, 42, 43, 302, 308, 195, 202, 203, 593, 212, 349, 97, 359, 368, 498, 503, 122}
+Saving plots/cluster/6-8.png
+Graph idx: 
+{514, 515, 141, 277, 151, 25, 153, 28, 286, 545, 165, 552, 559, 561, 56, 323, 77, 78, 336, 596, 469, 245, 118, 504, 124, 126}
+Saving plots/cluster/6-9.png
+Graph idx: 
+{396, 19, 21, 537, 282, 290, 296, 172, 557, 438, 193, 194, 326, 582, 464, 210, 594, 596, 597, 347, 220, 225, 354, 246, 503, 378, 125}
+Saving plots/cluster/7-0.png
+Graph idx: 
+{0, 1, 258, 5, 8, 265, 266, 269, 534, 24, 409, 26, 27, 28, 285, 413, 543, 288, 545, 542, 548, 421, 40, 169, 552, 300, 302, 560, 304, 308, 440, 570, 443, 189, 61, 63, 576, 67, 323, 199, 209, 466, 83, 596, 597, 84, 344, 345, 346, 347, 88, 94, 225, 482, 229, 249, 102, 104, 490, 237, 251, 496, 501, 119, 121, 379}
+Saving plots/cluster/7-1.png
+Graph idx: 
+{0, 1, 515, 519, 8, 394, 523, 525, 269, 15, 142, 148, 21, 533, 535, 25, 539, 28, 157, 417, 169, 41, 44, 46, 175, 302, 48, 305, 182, 311, 186, 315, 444, 61, 190, 192, 326, 199, 71, 72, 73, 203, 202, 208, 336, 594, 339, 596, 341, 464, 340, 88, 89, 95, 225, 227, 110, 241, 500}
+Saving plots/cluster/7-2.png
+Graph idx: 
+{2, 389, 390, 137, 523, 524, 272, 16, 20, 22, 409, 29, 541, 289, 421, 166, 551, 38, 559, 432, 314, 570, 61, 317, 192, 65, 198, 199, 586, 203, 460, 333, 208, 84, 89, 218, 348, 222, 96, 103, 232, 233, 488, 107, 364, 110, 240, 498, 244, 509, 511}
+Saving plots/cluster/7-3.png
+Graph idx: 
+{512, 515, 133, 389, 6, 9, 266, 11, 523, 525, 14, 402, 147, 148, 277, 278, 149, 24, 283, 539, 28, 286, 35, 552, 169, 42, 48, 305, 306, 438, 441, 572, 318, 70, 72, 202, 208, 210, 83, 339, 218, 223, 225, 228, 229, 490, 363, 239, 497, 115, 502, 122}
+Saving plots/cluster/7-4.png
+Graph idx: 
+{394, 269, 400, 16, 407, 285, 288, 173, 183, 315, 571, 66, 67, 324, 326, 202, 203, 591, 596, 345, 221, 358, 496, 497, 371, 502}
+Saving plots/cluster/7-5.png
+Graph idx: 
+{398, 15, 278, 540, 413, 166, 171, 174, 53, 438, 190, 319, 449, 195, 453, 208, 340, 471, 88, 348, 354, 101, 360, 241}
+Saving plots/cluster/7-6.png
+Graph idx: 
+{416, 417, 354, 292, 485, 102, 550, 198, 271, 562, 597, 117, 503, 539, 538, 571, 316, 381, 478}
+Saving plots/cluster/7-7.png
+Graph idx: 
+{522, 19, 21, 537, 282, 166, 172, 557, 438, 572, 193, 581, 326, 464, 210, 339, 220, 93, 96, 225, 106}
+Saving plots/cluster/7-8.png
+Graph idx: 
+{387, 292, 197, 294, 295, 296, 421, 170, 208, 562, 178, 348, 377, 572}
+Saving plots/cluster/7-9.png
+Graph idx: 
+{194, 419, 101, 326, 166, 168, 295, 582, 167, 536, 174, 465, 594, 19, 563, 307, 248, 185, 90, 125}
+Saving plots/cluster/8-0.png
+Graph idx: 
+{2, 389, 390, 523, 16, 20, 22, 29, 541, 289, 166, 38, 551, 432, 570, 317, 61, 192, 65, 198, 199, 586, 203, 333, 208, 84, 89, 218, 348, 96, 103, 232, 233, 488, 107, 364, 110, 240, 498, 244, 509, 511}
+Saving plots/cluster/8-1.png
+Graph idx: 
+{512, 133, 389, 6, 9, 266, 523, 525, 14, 402, 147, 148, 277, 278, 149, 283, 539, 28, 35, 552, 169, 48, 305, 306, 441, 572, 70, 72, 202, 208, 210, 339, 218, 223, 225, 229, 490, 363, 239, 497, 115, 502, 122}
+Saving plots/cluster/8-2.png
+Graph idx: 
+{1, 519, 269, 15, 21, 533, 535, 25, 539, 28, 417, 41, 46, 48, 305, 186, 444, 61, 192, 71, 208, 336, 594, 464, 340, 89, 95, 227, 110, 241, 500}
+Saving plots/cluster/8-3.png
+Graph idx: 
+{0, 545, 258, 249, 8, 552, 266, 300, 496, 466, 83, 570, 597, 596, 84, 24, 345, 346, 347, 63}
+Saving plots/cluster/8-4.png
+Graph idx: 
+{288, 1, 0, 199, 72, 73, 265, 542, 174, 119, 189, 121, 28, 285, 190}
+Saving plots/cluster/8-5.png
+Graph idx: 
+{69, 165, 265, 140, 13, 559, 251, 561, 82, 92, 252, 380, 411, 476}
+Saving plots/cluster/8-6.png
+Graph idx: 
+{482, 323, 548, 169, 237, 560, 570, 443, 24, 409, 26, 251, 285, 94, 543}
+Saving plots/cluster/8-7.png
+Graph idx: 
+{512, 451, 195, 396, 205, 239, 273, 347, 532, 252, 500, 281, 571, 348}
+Saving plots/cluster/8-8.png
+Graph idx: 
+{288, 407, 66, 324, 326, 358, 591, 496, 497, 183, 345, 285}
+Saving plots/cluster/8-9.png
+Graph idx: 
+{225, 577, 197, 326, 172, 557, 19, 21, 214, 182, 438, 282, 220}
+Saving plots/cluster/9-0.png
+Graph idx: 
+{512, 133, 389, 6, 9, 525, 14, 402, 147, 148, 277, 149, 283, 539, 35, 552, 48, 305, 306, 441, 572, 70, 72, 202, 208, 210, 339, 223, 225, 490, 363, 239, 497, 115, 122}
+Saving plots/cluster/9-1.png
+Graph idx: 
+{2, 390, 20, 22, 29, 541, 38, 551, 432, 317, 192, 65, 199, 203, 333, 208, 84, 96, 232, 488, 107, 110, 240, 498, 244, 509}
+Saving plots/cluster/9-2.png
+Graph idx: 
+{288, 417, 407, 326, 358, 71, 496, 535, 345, 539, 285, 95}
+Saving plots/cluster/9-3.png
+Graph idx: 
+{69, 165, 265, 140, 13, 92, 561, 82, 380, 251, 476}
+Saving plots/cluster/9-4.png
+Graph idx: 
+{579, 232, 265, 330, 511, 499, 309, 438, 348, 383}
+Saving plots/cluster/9-5.png
+Graph idx: 
+{292, 197, 294, 295, 296}
+Saving plots/cluster/9-6.png
+Graph idx: 
+{194, 166, 582, 174, 594, 563, 19, 307, 90}
+Saving plots/cluster/9-7.png
+Graph idx: 
+{160, 522, 172, 463, 465, 19, 438, 182, 220}
+Saving plots/cluster/9-8.png
+Graph idx: 
+{6, 401, 402, 182, 183, 122, 539, 316, 574}
+Saving plots/cluster/9-9.png
+Graph idx: 
+{192, 1, 288, 542, 28, 285, 190}
+Saving plots/cluster/10-0.png
+Graph idx: 
+{292, 197, 294, 295, 296}
+Saving plots/cluster/10-1.png
+Graph idx: 
+{69, 165, 265, 13, 92, 561, 82, 251, 380}
+Saving plots/cluster/10-2.png
+Graph idx: 
+{192, 390, 488, 333, 432, 498, 244, 22, 29}
+Saving plots/cluster/10-3.png
+Graph idx: 
+{389, 72, 202, 523, 490, 525, 266, 305, 306}
+Saving plots/cluster/10-4.png
+Graph idx: 
+{96, 2, 38, 107, 203, 208, 409, 509}
+Saving plots/cluster/10-5.png
+Graph idx: 
+{192, 1, 288, 28, 285, 542}
+Saving plots/cluster/10-6.png
+Graph idx: 
+{0, 545, 8, 266, 83, 84}
+Saving plots/cluster/10-7.png
+Graph idx: 
+{579, 499, 309, 348, 511}
+Saving plots/cluster/10-8.png
+Graph idx: 
+{234, 563, 281, 122, 316, 223}
+Saving plots/cluster/10-9.png
+Graph idx: 
+{515, 525, 14, 48, 24, 539}
+Saving plots/cluster/11-0.png
+Graph idx: 
+{69, 165, 265, 13, 92, 561, 82, 251, 380}
+Saving plots/cluster/11-1.png
+Graph idx: 
+{292, 294, 295}
+Saving plots/cluster/11-2.png
+Graph idx: 
+{192, 1, 288, 28, 285}
+Saving plots/cluster/11-3.png
+Graph idx: 
+{260, 437, 527}
+Saving plots/cluster/11-4.png
+Graph idx: 
+{88, 490, 27, 380}
+Saving plots/cluster/11-5.png
+Graph idx: 
+{498, 390, 22}
+Saving plots/cluster/11-6.png
+Graph idx: 
+{240, 544, 21, 421}
+Saving plots/cluster/11-7.png
+Graph idx: 
+{552, 77}
+Saving plots/cluster/11-8.png
+Graph idx: 
+{24, 21, 191}
+Saving plots/cluster/11-9.png
+Graph idx: 
+{208, 259, 548}
+Saving plots/cluster/12-0.png
+Graph idx: 
+{69, 165, 92, 561, 82, 380}
+Saving plots/cluster/12-1.png
+Graph idx: 
+{192, 1, 288}
+Saving plots/cluster/12-2.png
+Graph idx: 
+{552, 77}
+Saving plots/cluster/12-3.png
+Graph idx: 
+{89, 26, 63}
+Saving plots/cluster/12-4.png
+Graph idx: 
+{514, 323}
+Saving plots/cluster/12-5.png
+Graph idx: 
+{104, 419, 421}
+Saving plots/cluster/12-6.png
+Graph idx: 
+{292, 117}
+Saving plots/cluster/12-7.png
+Graph idx: 
+{88, 490, 27}
+Saving plots/cluster/12-8.png
+Graph idx: 
+{281, 563, 70}
+Saving plots/cluster/12-9.png
+Graph idx: 
+{260}
+Saving plots/cluster/13-0.png
+Graph idx: 
+{89, 26, 63}
+Saving plots/cluster/13-1.png
+Graph idx: 
+{514, 323}
+Saving plots/cluster/13-2.png
+Graph idx: 
+{561, 165}
+Saving plots/cluster/13-3.png
+Graph idx: 
+{260}
+Saving plots/cluster/13-4.png
+Graph idx: 
+{25, 21}
+Saving plots/cluster/13-5.png
+Graph idx: 
+{417}
+Saving plots/cluster/13-6.png
+Graph idx: 
+{334}
+Saving plots/cluster/13-7.png
+Graph idx: 
+{554}
+Saving plots/cluster/13-8.png
+Graph idx: 
+{77}
+Saving plots/cluster/13-9.png
+Graph idx: 
+{24, 21}
+Saving plots/cluster/14-0.png
+Graph idx: 
+{514, 323}
+Saving plots/cluster/14-1.png
+Graph idx: 
+{260}
+Saving plots/cluster/14-2.png
+Graph idx: 
+{25, 21}
+Saving plots/cluster/14-3.png
+Graph idx: 
+{417}
+Saving plots/cluster/14-4.png
+Graph idx: 
+{334}
+Saving plots/cluster/14-5.png
+Graph idx: 
+{380, 327}
+Saving plots/cluster/14-6.png
+Graph idx: 
+{554}
+Saving plots/cluster/14-7.png
+Graph idx: 
+{77}
+Saving plots/cluster/14-8.png
+Graph idx: 
+{24, 21}
+Saving plots/cluster/14-9.png
+Graph idx: 
+{169}
+Saving plots/cluster/15-0.png
+Graph idx: 
+{260}
+Saving plots/cluster/15-1.png
+Graph idx: 
+{25, 21}
+Saving plots/cluster/15-2.png
+Graph idx: 
+{417}
+Saving plots/cluster/15-3.png
+Graph idx: 
+{334}
+Saving plots/cluster/15-4.png
+Graph idx: 
+{380, 327}
+Saving plots/cluster/15-5.png
+Graph idx: 
+{554}
+Saving plots/cluster/15-6.png
+Graph idx: 
+{77}
+Saving plots/cluster/15-7.png
+Graph idx: 
+{24, 21}
+Saving plots/cluster/15-8.png
+Graph idx: 
+{169}
+Saving plots/cluster/15-9.png
+Graph idx: 
+{168}
+Saving plots/cluster/16-0.png
+Graph idx: 
+{260}
+Saving plots/cluster/16-1.png
+Graph idx: 
+{25, 21}
+Saving plots/cluster/16-2.png
+Graph idx: 
+{334}
+Saving plots/cluster/16-3.png
+Graph idx: 
+{554}
+Saving plots/cluster/16-4.png
+Graph idx: 
+{77}
+Saving plots/cluster/16-5.png
+Graph idx: 
+{24, 21}
+Saving plots/cluster/16-6.png
+Graph idx: 
+{169}
+Saving plots/cluster/16-7.png
+Graph idx: 
+{168}
+Saving plots/cluster/16-8.png
+Graph idx: 
+{147, 148}
+Saving plots/cluster/16-9.png
+Graph idx: 
+{202, 203}
+Saving plots/cluster/17-0.png
+Graph idx: 
+{260}
+Saving plots/cluster/17-1.png
+Graph idx: 
+{25, 21}
+Saving plots/cluster/17-2.png
+Graph idx: 
+{334}
+Saving plots/cluster/17-3.png
+Graph idx: 
+{554}
+Saving plots/cluster/17-4.png
+Graph idx: 
+{77}
+Saving plots/cluster/17-5.png
+Graph idx: 
+{24, 21}
+Saving plots/cluster/17-6.png
+Graph idx: 
+{169}
+Saving plots/cluster/17-7.png
+Graph idx: 
+{168}
+Saving plots/cluster/17-8.png
+Graph idx: 
+{147, 148}
+Saving plots/cluster/17-9.png
+Graph idx: 
+{202, 203}
+Saving plots/cluster/18-0.png
+Graph idx: 
+{260}
+Saving plots/cluster/18-1.png
+Graph idx: 
+{25, 21}
+Saving plots/cluster/18-2.png
+Graph idx: 
+{334}
+Saving plots/cluster/18-3.png
+Graph idx: 
+{554}
+Saving plots/cluster/18-4.png
+Graph idx: 
+{24, 21}
+Saving plots/cluster/18-5.png
+Graph idx: 
+{169}
+Saving plots/cluster/18-6.png
+Graph idx: 
+{168}
+Saving plots/cluster/18-7.png
+Graph idx: 
+{147, 148}
+Saving plots/cluster/18-8.png
+Graph idx: 
+{202, 203}
+Saving plots/cluster/18-9.png
+Graph idx: 
+{295}
+Saving plots/cluster/19-0.png
+Graph idx: 
+{260}
+Saving plots/cluster/19-1.png
+Graph idx: 
+{25, 21}
+Saving plots/cluster/19-2.png
+Graph idx: 
+{334}
+Saving plots/cluster/19-3.png
+Graph idx: 
+{554}
+Saving plots/cluster/19-4.png
+Graph idx: 
+{24, 21}
+Saving plots/cluster/19-5.png
+Graph idx: 
+{169}
+Saving plots/cluster/19-6.png
+Graph idx: 
+{168}
+Saving plots/cluster/19-7.png
+Graph idx: 
+{147, 148}
+Saving plots/cluster/19-8.png
+Graph idx: 
+{202, 203}
+Saving plots/cluster/19-9.png
+Graph idx: 
+{295}
+Saving plots/cluster/20-0.png
+Graph idx: 
+{260}
+Saving plots/cluster/20-1.png
+Graph idx: 
+{25, 21}
+Saving plots/cluster/20-2.png
+Graph idx: 
+{334}
+Saving plots/cluster/20-3.png
+Graph idx: 
+{554}
+Saving plots/cluster/20-4.png
+Graph idx: 
+{24, 21}
+Saving plots/cluster/20-5.png
+Graph idx: 
+{169}
+Saving plots/cluster/20-6.png
+Graph idx: 
+{168}
+Saving plots/cluster/20-7.png
+Graph idx: 
+{147, 148}
+Saving plots/cluster/20-8.png
+Graph idx: 
+{202, 203}
+Saving plots/cluster/20-9.png
+Graph idx: 
+{295}
