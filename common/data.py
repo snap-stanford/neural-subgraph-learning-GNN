@@ -456,10 +456,10 @@ class  PreloadedDataSource(DataSource):
         for i in range(loop_time):
             if i == 0:
                 loaders[1].append(0)
-                loaders[2].append(max(size, batch_size))
+                loaders[2].append(min(size, batch_size))
             else:
                 loaders[1].append(loaders[2][-1])
-                loaders[2].append(max(size, loaders[1][-1] + batch_size))
+                loaders[2].append(min(size, loaders[1][-1] + batch_size))
 
         return loaders
 
