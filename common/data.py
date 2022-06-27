@@ -47,6 +47,8 @@ def load_dataset(name):
         dataset = TUDataset(root="/tmp/FIRSTMM_DB", name="FIRSTMM_DB")
     elif name == "dblp":
         dataset = TUDataset(root="/tmp/DBLP_v1", name="DBLP_v1")
+    elif name == "msrc":
+        dataset = TUDataset(root="/tmp/MSRC-21", name="MSRC-21")
     elif name == "ppi":
         dataset = PPI(root="/tmp/PPI")
     elif name == "qm9":
@@ -425,6 +427,71 @@ class DiskImbalancedDataSource(OTFSynDataSource):
         neg_b = utils.batch_nx_graphs(neg_b)
         self.batch_idx += 1
         return pos_a, pos_b, neg_a, neg_b
+
+class  PreloadedDataSource(DataSource):
+    def __init__(self, dataset_name):
+        self.dataset = dataset_name
+        self.train_keys = []
+        self.test_keys = []
+
+        with open (os.path.join(self.dataset, "train_keys.pkl"), 'rb') as fp:
+            self.train_keys = pickle.load(fp)
+
+        with open (os.path.join(self.dataset, "test_keys.pkl"), 'rb') as fp:
+            self.test_keys = pickle.load(fp)
+
+        self.train_size = len(self.train_keys)
+        self.test_size = len(self.test_keys)
+
+    def gen_data_loaders(self, _, batch_size, train=True):
+        if train:
+            size = self.train_size
+        else:
+            size = self.test_size
+        loop_time = size // batch_size
+        if size % batch_size != 0:
+            loop_time += 1
+        
+        loaders = [[batch_size]*loop_time, [], []]
+        for i in range(loop_time):
+            if i == 0:
+                loaders[1].append(0)
+                loaders[2].append(max(size, batch_size))
+            else:
+                loaders[1].append(loaders[2][-1])
+                loaders[2].append(max(size, loaders[1][-1] + batch_size))
+
+        return loaders
+
+    def gen_batch(self, batch_size, start, end, train):
+        pos_a, pos_b, neg_a, neg_b = [], [], [], []
+        keys = []
+        if train:
+            keys = self.train_keys
+        else:
+            keys = self.test_keys
+        
+        for key in keys[start:end]:
+            with open(os.path.join(self.dataset, key), 'rb') as f:
+                data = pickle.load(f)
+                if len(data) == 3:
+                    m1, m2, _ = data
+                else:
+                    m1, m2 = data
+
+                if "iso" in key:
+                    pos_target.append(m2)
+                    pos_query.append(m1)
+                else:
+                    neg_target.append(m2)
+                    neg_query.append(m1)
+
+        pos_target = utils.batch_nx_graphs(pos_a)
+        pos_query = utils.batch_nx_graphs(pos_b)
+        neg_target = utils.batch_nx_graphs(neg_a)
+        neg_query = utils.batch_nx_graphs(neg_b)
+
+        return pos_target, pos_query, neg_target, neg_query
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt

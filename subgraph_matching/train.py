@@ -62,6 +62,11 @@ def make_data_source(args):
                 node_anchored=args.node_anchored)
         else:
             raise Exception("Error: unrecognized dataset")
+    elif toks[0] == "preloaded":
+        if len(toks) == 1:
+            raise Exception("Error: unrecognized dataset")
+        else:
+            data_source = data.PreloadedDataSource(toks[1])
     else:
         if len(toks) == 1 or toks[1] == "balanced":
             data_source = data.DiskDataSource(toks[0],
