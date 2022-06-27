@@ -443,7 +443,7 @@ class  PreloadedDataSource(DataSource):
         self.train_size = len(self.train_keys)
         self.test_size = len(self.test_keys)
 
-    def gen_data_loaders(self, _, batch_size, train=True):
+    def gen_data_loaders(self, _, batch_size, train=True, use_distributed_sampling=False):
         if train:
             size = self.train_size
         else:
