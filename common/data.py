@@ -480,11 +480,11 @@ class  PreloadedDataSource(DataSource):
                     m1, m2 = data
 
                 if "iso" in key:
-                    pos_target.append(m2)
-                    pos_query.append(m1)
+                    pos_a.append(m2)
+                    pos_b.append(m1)
                 else:
-                    neg_target.append(m2)
-                    neg_query.append(m1)
+                    neg_a.append(m2)
+                    neg_b.append(m1)
 
         pos_target = utils.batch_nx_graphs(pos_a)
         pos_query = utils.batch_nx_graphs(pos_b)
