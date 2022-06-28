@@ -18,6 +18,7 @@ from deepsnap.batch import Batch
 import networkx as nx
 import numpy as np
 from sklearn.manifold import TSNE
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.multiprocessing as mp
@@ -66,7 +67,7 @@ def make_data_source(args):
         if len(toks) == 1:
             raise Exception("Error: unrecognized dataset")
         else:
-            data_source = data.PreloadedDataSource(toks[1])
+            data_source = data.PreloadedDataSource('-'.join(toks[1:]))
     else:
         if len(toks) == 1 or toks[1] == "balanced":
             data_source = data.DiskDataSource(toks[0],
@@ -166,7 +167,7 @@ def train_loop(args):
     loaders = data_source.gen_data_loaders(args.val_size, args.batch_size,
         train=False, use_distributed_sampling=False)
     test_pts = []
-    for batch_target, batch_neg_target, batch_neg_query in zip(*loaders):
+    for batch_target, batch_neg_target, batch_neg_query in tqdm(zip(*loaders)):
         pos_a, pos_b, neg_a, neg_b = data_source.gen_batch(batch_target,
             batch_neg_target, batch_neg_query, False)
         if pos_a:
