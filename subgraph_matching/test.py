@@ -4,6 +4,7 @@ from datetime import datetime
 from sklearn.metrics import roc_auc_score, confusion_matrix
 from sklearn.metrics import precision_recall_curve, average_precision_score
 import torch
+import time
 
 USE_ORCA_FEATS = False # whether to use orca motif counts along with embeddings
 MAX_MARGIN_SCORE = 1e9 # a very large margin score to given orca constraints
@@ -12,6 +13,7 @@ def validation(args, model, test_pts, logger, batch_n, epoch, verbose=False):
     # test on new motifs
     model.eval()
     all_raw_preds, all_preds, all_labels = [], [], []
+    start_time = time.time()
     for pos_a, pos_b, neg_a, neg_b in test_pts:
         if pos_a:
             pos_a = pos_a.to(utils.get_device())
@@ -64,6 +66,8 @@ def validation(args, model, test_pts, logger, batch_n, epoch, verbose=False):
         all_raw_preds.append(raw_pred)
         all_preds.append(pred)
         all_labels.append(labels)
+    end_time = time.time()
+    time_per_query = (end_time - start_time) / (len(test_pts) * 2 * args.batch_size)
     pred = torch.cat(all_preds, dim=-1)
     labels = torch.cat(all_labels, dim=-1)
     raw_pred = torch.cat(all_raw_preds, dim=-1)
@@ -89,9 +93,9 @@ def validation(args, model, test_pts, logger, batch_n, epoch, verbose=False):
         print("Saved PR curve plot in plots/precision-recall-curve.png")
 
     print("\n{}".format(str(datetime.now())))
-    print("Validation. Epoch {}. Acc: {:.4f}. "
-        "P: {:.4f}. R: {:.4f}. AUROC: {:.4f}. AP: {:.4f}.\n     "
-        "TN: {}. FP: {}. FN: {}. TP: {}".format(epoch,
+    print("Validation. Epoch {}. Time: {:.5f}. Acc: {:.5f}. "
+        "P: {:.5f}. R: {:.5f}. AUROC: {:.5f}. AP: {:.5f}.\n     "
+        "TN: {}. FP: {}. FN: {}. TP: {}".format(epoch, time_per_query,
             acc, prec, recall, auroc, avg_prec,
             tn, fp, fn, tp))
 
