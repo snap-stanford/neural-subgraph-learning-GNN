@@ -173,8 +173,9 @@ def train_loop(args):
         if pos_a:
             pos_a = pos_a.to(torch.device("cpu"))
             pos_b = pos_b.to(torch.device("cpu"))
-        neg_a = neg_a.to(torch.device("cpu"))
-        neg_b = neg_b.to(torch.device("cpu"))
+        if neg_a:
+            neg_a = neg_a.to(torch.device("cpu"))
+            neg_b = neg_b.to(torch.device("cpu"))
         test_pts.append((pos_a, pos_b, neg_a, neg_b))
 
     workers = []

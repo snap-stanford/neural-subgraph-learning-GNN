@@ -486,12 +486,14 @@ class  PreloadedDataSource(DataSource):
                     neg_a.append(m2)
                     neg_b.append(m1)
 
-        pos_target = utils.batch_nx_graphs(pos_a)
-        pos_query = utils.batch_nx_graphs(pos_b)
-        neg_target = utils.batch_nx_graphs(neg_a)
-        neg_query = utils.batch_nx_graphs(neg_b)
+        if pos_a:
+            pos_a = utils.batch_nx_graphs(pos_a)
+            pos_b = utils.batch_nx_graphs(pos_b)
+        if neg_a:
+            neg_a = utils.batch_nx_graphs(neg_a)
+            neg_b = utils.batch_nx_graphs(neg_b)
 
-        return pos_target, pos_query, neg_target, neg_query
+        return pos_a, pos_b, neg_a, neg_b
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
