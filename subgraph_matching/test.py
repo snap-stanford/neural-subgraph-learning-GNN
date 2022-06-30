@@ -122,12 +122,15 @@ def validation(args, model, data_source, logger, batch_n, epoch, verbose=False):
     if verbose:
         conf_mat_examples = defaultdict(list)
         idx = 0
-        for pos_a, pos_b, neg_a, neg_b in test_pts:
+        for batch_target, batch_neg_target, batch_neg_query in tqdm(zip(*loaders)):
+            pos_a, pos_b, neg_a, neg_b = data_source.gen_batch(batch_target,
+                batch_neg_target, batch_neg_query, train=False)
             if pos_a:
                 pos_a = pos_a.to(utils.get_device())
                 pos_b = pos_b.to(utils.get_device())
-            neg_a = neg_a.to(utils.get_device())
-            neg_b = neg_b.to(utils.get_device())
+            if neg_a:
+                neg_a = neg_a.to(utils.get_device())
+                neg_b = neg_b.to(utils.get_device())
             for list_a, list_b in [(pos_a, pos_b), (neg_a, neg_b)]:
                 if not list_a: continue
                 for a, b in zip(list_a.G, list_b.G):
