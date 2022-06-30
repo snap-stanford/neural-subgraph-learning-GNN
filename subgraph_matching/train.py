@@ -164,19 +164,19 @@ def train_loop(args):
         clf_opt = None
 
     data_source = make_data_source(args)
-    loaders = data_source.gen_data_loaders(args.val_size, args.batch_size,
-        train=False, use_distributed_sampling=False)
-    test_pts = []
-    for batch_target, batch_neg_target, batch_neg_query in tqdm(zip(*loaders)):
-        pos_a, pos_b, neg_a, neg_b = data_source.gen_batch(batch_target,
-            batch_neg_target, batch_neg_query, False)
-        if pos_a:
-            pos_a = pos_a.to(torch.device("cpu"))
-            pos_b = pos_b.to(torch.device("cpu"))
-        if neg_a:
-            neg_a = neg_a.to(torch.device("cpu"))
-            neg_b = neg_b.to(torch.device("cpu"))
-        test_pts.append((pos_a, pos_b, neg_a, neg_b))
+    # loaders = data_source.gen_data_loaders(args.val_size, args.batch_size,
+    #     train=False, use_distributed_sampling=False)
+    # test_pts = []
+    # for batch_target, batch_neg_target, batch_neg_query in tqdm(zip(*loaders)):
+    #     pos_a, pos_b, neg_a, neg_b = data_source.gen_batch(batch_target,
+    #         batch_neg_target, batch_neg_query, False)
+    #     if pos_a:
+    #         pos_a = pos_a.to(torch.device("cpu"))
+    #         pos_b = pos_b.to(torch.device("cpu"))
+    #     if neg_a:
+    #         neg_a = neg_a.to(torch.device("cpu"))
+    #         neg_b = neg_b.to(torch.device("cpu"))
+    #     test_pts.append((pos_a, pos_b, neg_a, neg_b))
 
     workers = []
     for i in range(args.n_workers):
@@ -186,7 +186,7 @@ def train_loop(args):
         workers.append(worker)
 
     if args.test:
-        validation(args, model, test_pts, logger, 0, 0, verbose=True)
+        validation(args, model, data_source, logger, 0, 0, verbose=True)
     else:
         batch_n = 0
         for epoch in range(args.n_batches // args.eval_interval):
@@ -200,7 +200,7 @@ def train_loop(args):
                 logger.add_scalar("Loss/train", train_loss, batch_n)
                 logger.add_scalar("Accuracy/train", train_acc, batch_n)
                 batch_n += 1
-            validation(args, model, test_pts, logger, batch_n, epoch)
+            validation(args, model, data_source, logger, batch_n, epoch)
 
     for i in range(args.n_workers):
         in_queue.put(("done", None))

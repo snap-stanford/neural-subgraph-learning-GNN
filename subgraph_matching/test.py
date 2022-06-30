@@ -5,21 +5,28 @@ from sklearn.metrics import roc_auc_score, confusion_matrix
 from sklearn.metrics import precision_recall_curve, average_precision_score
 import torch
 import time
+from tqdm import tqdm
 
 USE_ORCA_FEATS = False # whether to use orca motif counts along with embeddings
 MAX_MARGIN_SCORE = 1e9 # a very large margin score to given orca constraints
 
-def validation(args, model, test_pts, logger, batch_n, epoch, verbose=False):
+def validation(args, model, data_source, logger, batch_n, epoch, verbose=False):
     # test on new motifs
     model.eval()
     all_raw_preds, all_preds, all_labels = [], [], []
+    loaders = data_source.gen_data_loaders(args.val_size, args.batch_size,
+        train=False, use_distributed_sampling=False)
+
     start_time = time.time()
-    for pos_a, pos_b, neg_a, neg_b in test_pts:
+    for batch_target, batch_neg_target, batch_neg_query in tqdm(zip(*loaders)):
+        pos_a, pos_b, neg_a, neg_b = data_source.gen_batch(batch_target,
+            batch_neg_target, batch_neg_query, train=False)
         if pos_a:
             pos_a = pos_a.to(utils.get_device())
             pos_b = pos_b.to(utils.get_device())
-        neg_a = neg_a.to(utils.get_device())
-        neg_b = neg_b.to(utils.get_device())
+        if neg_a:
+            neg_a = neg_a.to(utils.get_device())
+            neg_b = neg_b.to(utils.get_device())
         labels = torch.tensor([1]*(pos_a.num_graphs if pos_a else 0) +
             [0]*neg_a.num_graphs).to(utils.get_device())
         with torch.no_grad():
