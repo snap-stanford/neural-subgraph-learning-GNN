@@ -74,10 +74,10 @@ def validation(args, model, data_source, logger, batch_n, epoch, verbose=False):
         all_preds.append(pred)
         all_labels.append(labels)
     end_time = time.time()
-    time_per_query = (end_time - start_time) / (len(test_pts) * 2 * args.batch_size)
     pred = torch.cat(all_preds, dim=-1)
     labels = torch.cat(all_labels, dim=-1)
     raw_pred = torch.cat(all_raw_preds, dim=-1)
+    time_per_query = (end_time - start_time) / len(labels)
     acc = torch.mean((pred == labels).type(torch.float))
     prec = (torch.sum(pred * labels).item() / torch.sum(pred).item() if
         torch.sum(pred) > 0 else float("NaN"))
