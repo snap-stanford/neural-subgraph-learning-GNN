@@ -47,7 +47,7 @@ def build_model(args):
     elif args.method_type == "mlp":
         model = models.BaselineMLP(1, args.hidden_dim, args)
     model.to(utils.get_device())
-    if args.test and args.model_path:
+    if os.path.exists(args.model_path):
         model.load_state_dict(torch.load(args.model_path,
             map_location=utils.get_device()))
     return model
