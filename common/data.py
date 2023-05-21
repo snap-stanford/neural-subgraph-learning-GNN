@@ -429,15 +429,18 @@ class DiskImbalancedDataSource(OTFSynDataSource):
         return pos_a, pos_b, neg_a, neg_b
 
 class  PreloadedDataSource(DataSource):
-    def __init__(self, dataset_name):
+    def __init__(self, dataset_name, tag=None):
         self.dataset = dataset_name
         self.train_keys = []
         self.test_keys = []
 
         with open (os.path.join(self.dataset, "train_keys.pkl"), 'rb') as fp:
             self.train_keys = pickle.load(fp)
-
-        with open (os.path.join(self.dataset, "test_keys.pkl"), 'rb') as fp:
+        if tag is None:
+            test_key_file = "test_keys.pkl"
+        else:
+            test_key_file = "_".join(["test_keys", tag]) + ".pkl"
+        with open (os.path.join(self.dataset, test_key_file), 'rb') as fp:
             self.test_keys = pickle.load(fp)
 
         self.train_size = len(self.train_keys)
@@ -486,7 +489,7 @@ class  PreloadedDataSource(DataSource):
                     neg_a.append(m2)
                     neg_b.append(m1)
 
-        if pos_a:
+        if pos_a: 
             pos_a = utils.batch_nx_graphs(pos_a)
             pos_b = utils.batch_nx_graphs(pos_b)
         if neg_a:

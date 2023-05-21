@@ -27,19 +27,24 @@ def validation(args, model, data_source, logger, batch_n, epoch, verbose=False):
         if neg_a:
             neg_a = neg_a.to(utils.get_device())
             neg_b = neg_b.to(utils.get_device())
+        
         labels = torch.tensor([1]*(pos_a.num_graphs if pos_a else 0) +
-            [0]*neg_a.num_graphs).to(utils.get_device())
+            [0]*(neg_a.num_graphs if neg_a else 0)).to(utils.get_device())
         with torch.no_grad():
-            emb_neg_a, emb_neg_b = (model.emb_model(neg_a),
-                model.emb_model(neg_b))
+            emb_as = torch.tensor([]).to(utils.get_device())
+            emb_bs = torch.tensor([]).to(utils.get_device())
             if pos_a:
                 emb_pos_a, emb_pos_b = (model.emb_model(pos_a),
                     model.emb_model(pos_b))
-                emb_as = torch.cat((emb_pos_a, emb_neg_a), dim=0)
-                emb_bs = torch.cat((emb_pos_b, emb_neg_b), dim=0)
-            else:
-                emb_as, emb_bs = emb_neg_a, emb_neg_b
+                emb_as = torch.cat((emb_as, emb_pos_a), dim=0)
+                emb_bs = torch.cat((emb_bs, emb_pos_b), dim=0)
+            if neg_a:
+                emb_neg_a, emb_neg_b = (model.emb_model(neg_a),
+                                        model.emb_model(neg_b))
+                emb_as = torch.cat((emb_as, emb_neg_a), dim=0)
+                emb_bs = torch.cat((emb_bs, emb_neg_b), dim=0)
             pred = model(emb_as, emb_bs)
+    
             raw_pred = model.predict(pred)
             if USE_ORCA_FEATS:
                 import orca
