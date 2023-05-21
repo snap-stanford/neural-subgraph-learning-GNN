@@ -99,6 +99,8 @@ def main():
     print("Saved alignment matrix plot in plots/alignment.png")
 
 if __name__ == '__main__':
+    import matplotlib
+    matplotlib.use('TkAgg') 
     import matplotlib.pyplot as plt
     main()
 

@@ -18,6 +18,7 @@ from deepsnap.batch import Batch
 import networkx as nx
 import numpy as np
 from sklearn.manifold import TSNE
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.multiprocessing as mp
@@ -46,7 +47,7 @@ def build_model(args):
     elif args.method_type == "mlp":
         model = models.BaselineMLP(1, args.hidden_dim, args)
     model.to(utils.get_device())
-    if args.test and args.model_path:
+    if os.path.exists(args.model_path):
         model.load_state_dict(torch.load(args.model_path,
             map_location=utils.get_device()))
     return model
@@ -62,6 +63,21 @@ def make_data_source(args):
                 node_anchored=args.node_anchored)
         else:
             raise Exception("Error: unrecognized dataset")
+    elif toks[0] == "preloaded":
+        if len(toks) == 1:
+            raise Exception("Error: unrecognized dataset")
+        else:
+            if len(toks) >= 3:
+                if "dense" in toks[-1]:
+                    tag = toks[-1]
+                    dt_name = '-'.join(toks[1:-1])
+                else:
+                    tag = None
+                    dt_name = '-'.join(toks[1:])
+            else:
+                tag = None
+                dt_name = '-'.join(toks[1:])
+            data_source = data.PreloadedDataSource(dt_name, tag=tag)
     else:
         if len(toks) == 1 or toks[1] == "balanced":
             data_source = data.DiskDataSource(toks[0],
@@ -73,7 +89,7 @@ def make_data_source(args):
             raise Exception("Error: unrecognized dataset")
     return data_source
 
-def train(args, model, logger, in_queue, out_queue):
+def train(args, model, in_queue, out_queue):
     """Train the order embedding model.
 
     args: Commandline arguments
@@ -158,42 +174,44 @@ def train_loop(args):
         clf_opt = None
 
     data_source = make_data_source(args)
-    loaders = data_source.gen_data_loaders(args.val_size, args.batch_size,
-        train=False, use_distributed_sampling=False)
-    test_pts = []
-    for batch_target, batch_neg_target, batch_neg_query in zip(*loaders):
-        pos_a, pos_b, neg_a, neg_b = data_source.gen_batch(batch_target,
-            batch_neg_target, batch_neg_query, False)
-        if pos_a:
-            pos_a = pos_a.to(torch.device("cpu"))
-            pos_b = pos_b.to(torch.device("cpu"))
-        neg_a = neg_a.to(torch.device("cpu"))
-        neg_b = neg_b.to(torch.device("cpu"))
-        test_pts.append((pos_a, pos_b, neg_a, neg_b))
+    # loaders = data_source.gen_data_loaders(args.val_size, args.batch_size,
+    #     train=False, use_distributed_sampling=False)
+    # test_pts = []
+    # for batch_target, batch_neg_target, batch_neg_query in tqdm(zip(*loaders)):
+    #     pos_a, pos_b, neg_a, neg_b = data_source.gen_batch(batch_target,
+    #         batch_neg_target, batch_neg_query, False)
+    #     if pos_a:
+    #         pos_a = pos_a.to(torch.device("cpu"))
+    #         pos_b = pos_b.to(torch.device("cpu"))
+    #     if neg_a:
+    #         neg_a = neg_a.to(torch.device("cpu"))
+    #         neg_b = neg_b.to(torch.device("cpu"))
+    #     test_pts.append((pos_a, pos_b, neg_a, neg_b))
+    
+    if args.test:
+        validation(args, model, data_source, logger, 0, 0, verbose=True)
+        return
 
     workers = []
     for i in range(args.n_workers):
-        worker = mp.Process(target=train, args=(args, model, data_source,
+        worker = mp.Process(target=train, args=(args, model,
             in_queue, out_queue))
         worker.start()
         workers.append(worker)
 
-    if args.test:
-        validation(args, model, test_pts, logger, 0, 0, verbose=True)
-    else:
-        batch_n = 0
-        for epoch in range(args.n_batches // args.eval_interval):
-            for i in range(args.eval_interval):
-                in_queue.put(("step", None))
-            for i in range(args.eval_interval):
-                msg, params = out_queue.get()
-                train_loss, train_acc = params
-                print("Batch {}. Loss: {:.4f}. Training acc: {:.4f}".format(
-                    batch_n, train_loss, train_acc), end="               \r")
-                logger.add_scalar("Loss/train", train_loss, batch_n)
-                logger.add_scalar("Accuracy/train", train_acc, batch_n)
-                batch_n += 1
-            validation(args, model, test_pts, logger, batch_n, epoch)
+    batch_n = 0
+    for epoch in tqdm(range(args.n_batches // args.eval_interval)):
+        for i in range(args.eval_interval):
+            in_queue.put(("step", None))
+        for i in range(args.eval_interval):
+            msg, params = out_queue.get()
+            train_loss, train_acc = params
+            print("Batch {}. Loss: {:.4f}. Training acc: {:.4f}".format(
+                batch_n, train_loss, train_acc), end="               \r")
+            logger.add_scalar("Loss/train", train_loss, batch_n)
+            logger.add_scalar("Accuracy/train", train_acc, batch_n)
+            batch_n += 1
+        validation(args, model, data_source, logger, batch_n, epoch)
 
     for i in range(args.n_workers):
         in_queue.put(("done", None))

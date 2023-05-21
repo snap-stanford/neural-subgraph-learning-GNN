@@ -151,6 +151,8 @@ def pattern_growth(dataset, task, args):
             emb = model.emb_model(batch)
             emb = emb.to(torch.device("cpu"))
 
+            # print(emb)
+
         embs.append(emb)
 
     if args.analyze:
@@ -167,14 +169,15 @@ def pattern_growth(dataset, task, args):
             model, graphs, embs, node_anchored=args.node_anchored,
             analyze=args.analyze, model_type=args.method_type,
             out_batch_size=args.out_batch_size)
-    out_graphs = agent.run_search(args.n_trials)
+    out_graphs, graph_idx_list = agent.run_search(args.n_trials)
+    # print(graph_idx_list)
     print(time.time() - start_time, "TOTAL TIME")
     x = int(time.time() - start_time)
     print(x // 60, "mins", x % 60, "secs")
 
     # visualize out patterns
     count_by_size = defaultdict(int)
-    for pattern in out_graphs:
+    for pattern, graph_idx in zip(out_graphs, graph_idx_list):
         if args.node_anchored:
             colors = ["red"] + ["blue"]*(len(pattern)-1)
             nx.draw(pattern, node_color=colors, with_labels=True)
@@ -182,6 +185,8 @@ def pattern_growth(dataset, task, args):
             nx.draw(pattern)
         print("Saving plots/cluster/{}-{}.png".format(len(pattern),
             count_by_size[len(pattern)]))
+        print("Graph idx: ")
+        print(graph_idx)
         plt.savefig("plots/cluster/{}-{}.png".format(len(pattern),
             count_by_size[len(pattern)]))
         plt.savefig("plots/cluster/{}-{}.pdf".format(len(pattern),
@@ -192,7 +197,51 @@ def pattern_growth(dataset, task, args):
     if not os.path.exists("results"):
         os.makedirs("results")
     with open(args.out_path, "wb") as f:
-        pickle.dump(out_graphs, f)
+        pickle.dump((out_graphs, graph_idx_list), f)
+
+def read_graph_corpus(path):
+    graphs = []
+    # label_center = open(label_center_path, 'r', encoding='utf-8')
+    label_centers = []
+    with open(path, 'r', encoding='utf-8') as file:
+        nodes = {}
+        edges = {}
+        for line in file:
+            if 't' in line:
+                if len(nodes) > 0:
+                    graphs.append((nodes, edges))
+                    # if len(graphs) > 9:
+                        # break
+                nodes = {}
+                edges = {}
+            if 'v' in line:
+                data_line = line.split()
+                node_id = int(data_line[1])
+                node_label = int(data_line[2])
+                nodes[node_id] = node_label
+            if 'e' in line:
+                data_line = line.split()
+                source_id = int(data_line[1])
+                target_id = int(data_line[2])
+                label = int(data_line[3])
+                edges[(source_id, target_id)] = label
+        if len(nodes) > 0:
+            graphs.append((nodes,edges))
+    return graphs#[10:]
+
+def readGraphs(path):
+    rawGraphs = read_graph_corpus(path)
+    graphs = []
+    for graph in rawGraphs:
+        numVertices = len(graph[0])
+        g = nx.Graph()
+        # for v,l in graph[0].items():
+        #     g.add_node(v)
+        for e,l in graph[1].items():
+            g.add_edge(e[0], e[1])
+
+        graphs.append(g)
+    return graphs
 
 def main():
     if not os.path.exists("plots/cluster"):
@@ -202,14 +251,19 @@ def main():
     parse_encoder(parser)
     parse_decoder(parser)
     args = parser.parse_args()
-    args.dataset = "enzymes"
 
     print("Using dataset {}".format(args.dataset))
     if args.dataset == 'enzymes':
         dataset = TUDataset(root='/tmp/ENZYMES', name='ENZYMES')
         task = 'graph'
     elif args.dataset == 'cox2':
-        dataset = TUDataset(root='/tmp/cox2', name='COX2')
+        dataset = TUDataset(root='/tmp/Cox2', name='COX2')
+        task = 'graph'
+    elif args.dataset == 'cuneiform':
+        dataset = TUDataset(root='/tmp/Cuneiform', name='Cuneiform')
+        task = 'graph'
+    elif args.dataset == 'aids':
+        dataset = TUDataset(root='/tmp/AIDS', name='AIDS')
         task = 'graph'
     elif args.dataset == 'reddit-binary':
         dataset = TUDataset(root='/tmp/REDDIT-BINARY', name='REDDIT-BINARY')
@@ -219,6 +273,10 @@ def main():
         task = 'graph-truncate'
     elif args.dataset == 'coil':
         dataset = TUDataset(root='/tmp/coil', name='COIL-DEL')
+        task = 'graph'
+    elif args.dataset.startswith('synthetic_'):
+        dataset = readGraphs("data/{}.lg".format(args.dataset))
+
         task = 'graph'
     elif args.dataset.startswith('roadnet-'):
         graph = nx.Graph()
@@ -249,9 +307,11 @@ def main():
         size = int(args.dataset.split("-")[-1])
         dataset = make_plant_dataset(size)
         task = 'graph'
+    else:
+        dataset = readGraphs("data/{}.lg".format(args.dataset))
+        task = 'graph'
 
-    pattern_growth(dataset, task, args) 
+    pattern_growth(dataset, task, args)
 
 if __name__ == '__main__':
     main()
-

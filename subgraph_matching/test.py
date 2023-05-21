@@ -4,33 +4,47 @@ from datetime import datetime
 from sklearn.metrics import roc_auc_score, confusion_matrix
 from sklearn.metrics import precision_recall_curve, average_precision_score
 import torch
+import time
+from tqdm import tqdm
 
 USE_ORCA_FEATS = False # whether to use orca motif counts along with embeddings
 MAX_MARGIN_SCORE = 1e9 # a very large margin score to given orca constraints
 
-def validation(args, model, test_pts, logger, batch_n, epoch, verbose=False):
+def validation(args, model, data_source, logger, batch_n, epoch, verbose=False):
     # test on new motifs
     model.eval()
     all_raw_preds, all_preds, all_labels = [], [], []
-    for pos_a, pos_b, neg_a, neg_b in test_pts:
+    loaders = data_source.gen_data_loaders(args.val_size, args.batch_size,
+        train=False, use_distributed_sampling=False)
+
+    start_time = time.time()
+    for batch_target, batch_neg_target, batch_neg_query in tqdm(zip(*loaders)):
+        pos_a, pos_b, neg_a, neg_b = data_source.gen_batch(batch_target,
+            batch_neg_target, batch_neg_query, train=False)
         if pos_a:
             pos_a = pos_a.to(utils.get_device())
             pos_b = pos_b.to(utils.get_device())
-        neg_a = neg_a.to(utils.get_device())
-        neg_b = neg_b.to(utils.get_device())
+        if neg_a:
+            neg_a = neg_a.to(utils.get_device())
+            neg_b = neg_b.to(utils.get_device())
+        
         labels = torch.tensor([1]*(pos_a.num_graphs if pos_a else 0) +
-            [0]*neg_a.num_graphs).to(utils.get_device())
+            [0]*(neg_a.num_graphs if neg_a else 0)).to(utils.get_device())
         with torch.no_grad():
-            emb_neg_a, emb_neg_b = (model.emb_model(neg_a),
-                model.emb_model(neg_b))
+            emb_as = torch.tensor([]).to(utils.get_device())
+            emb_bs = torch.tensor([]).to(utils.get_device())
             if pos_a:
                 emb_pos_a, emb_pos_b = (model.emb_model(pos_a),
                     model.emb_model(pos_b))
-                emb_as = torch.cat((emb_pos_a, emb_neg_a), dim=0)
-                emb_bs = torch.cat((emb_pos_b, emb_neg_b), dim=0)
-            else:
-                emb_as, emb_bs = emb_neg_a, emb_neg_b
+                emb_as = torch.cat((emb_as, emb_pos_a), dim=0)
+                emb_bs = torch.cat((emb_bs, emb_pos_b), dim=0)
+            if neg_a:
+                emb_neg_a, emb_neg_b = (model.emb_model(neg_a),
+                                        model.emb_model(neg_b))
+                emb_as = torch.cat((emb_as, emb_neg_a), dim=0)
+                emb_bs = torch.cat((emb_bs, emb_neg_b), dim=0)
             pred = model(emb_as, emb_bs)
+    
             raw_pred = model.predict(pred)
             if USE_ORCA_FEATS:
                 import orca
@@ -64,9 +78,11 @@ def validation(args, model, test_pts, logger, batch_n, epoch, verbose=False):
         all_raw_preds.append(raw_pred)
         all_preds.append(pred)
         all_labels.append(labels)
+    end_time = time.time()
     pred = torch.cat(all_preds, dim=-1)
     labels = torch.cat(all_labels, dim=-1)
     raw_pred = torch.cat(all_raw_preds, dim=-1)
+    time_per_query = (end_time - start_time) / len(labels)
     acc = torch.mean((pred == labels).type(torch.float))
     prec = (torch.sum(pred * labels).item() / torch.sum(pred).item() if
         torch.sum(pred) > 0 else float("NaN"))
@@ -89,9 +105,9 @@ def validation(args, model, test_pts, logger, batch_n, epoch, verbose=False):
         print("Saved PR curve plot in plots/precision-recall-curve.png")
 
     print("\n{}".format(str(datetime.now())))
-    print("Validation. Epoch {}. Acc: {:.4f}. "
-        "P: {:.4f}. R: {:.4f}. AUROC: {:.4f}. AP: {:.4f}.\n     "
-        "TN: {}. FP: {}. FN: {}. TP: {}".format(epoch,
+    print("Validation. Epoch {}. Time: {:.5f}. Acc: {:.5f}. "
+        "P: {:.5f}. R: {:.5f}. AUROC: {:.5f}. AP: {:.5f}.\n     "
+        "TN: {}. FP: {}. FN: {}. TP: {}".format(epoch, time_per_query,
             acc, prec, recall, auroc, avg_prec,
             tn, fp, fn, tp))
 
@@ -111,12 +127,15 @@ def validation(args, model, test_pts, logger, batch_n, epoch, verbose=False):
     if verbose:
         conf_mat_examples = defaultdict(list)
         idx = 0
-        for pos_a, pos_b, neg_a, neg_b in test_pts:
+        for batch_target, batch_neg_target, batch_neg_query in tqdm(zip(*loaders)):
+            pos_a, pos_b, neg_a, neg_b = data_source.gen_batch(batch_target,
+                batch_neg_target, batch_neg_query, train=False)
             if pos_a:
                 pos_a = pos_a.to(utils.get_device())
                 pos_b = pos_b.to(utils.get_device())
-            neg_a = neg_a.to(utils.get_device())
-            neg_b = neg_b.to(utils.get_device())
+            if neg_a:
+                neg_a = neg_a.to(utils.get_device())
+                neg_b = neg_b.to(utils.get_device())
             for list_a, list_b in [(pos_a, pos_b), (neg_a, neg_b)]:
                 if not list_a: continue
                 for a, b in zip(list_a.G, list_b.G):
