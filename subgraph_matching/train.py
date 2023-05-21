@@ -140,7 +140,6 @@ def train(args, model, in_queue, out_queue):
                 criterion = nn.NLLLoss()
                 clf_loss = criterion(pred, labels)
                 clf_loss.backward()
-                print("Loss:", clf_loss.item(), end='\r', flush=True)
                 clf_opt.step()
             pred = pred.argmax(dim=-1)
             acc = torch.mean((pred == labels).type(torch.float))
